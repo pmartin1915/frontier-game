@@ -19,15 +19,23 @@ import {
 } from '@/types/animation';
 import type { SpriteSheetConfig, AccessoryConfig } from '@/types/animation';
 import { animKey } from '@/phaser/animation-registry';
-import { PLACEHOLDER_COLORS, SHEET_COLS } from '@/phaser/sprite-registry';
+import { PLACEHOLDER_COLORS, SHEET_COLS, SPRITE_SCALE } from '@/phaser/sprite-registry';
 
 // ============================================================
 // CHARACTER SPRITE
 // ============================================================
 
+/** Rim light scale factor — slightly larger than base for glow edge. */
+const RIM_SCALE_FACTOR = 1.06;
+/** Rim light base alpha. */
+const RIM_ALPHA = 0.35;
+
 export class CharacterSprite {
   readonly sprite: Phaser.GameObjects.Sprite;
   readonly config: SpriteSheetConfig;
+
+  /** Rim light sprite — rendered behind the main sprite for edge glow. */
+  private rimSprite?: Phaser.GameObjects.Sprite;
 
   private currentState: AnimationState = AnimationState.Idle;
   private facing: FacingDirection = FacingDirection.Right;
@@ -50,8 +58,21 @@ export class CharacterSprite {
       this.createPlaceholderTexture(scene, config);
     }
 
+    // Apply proportional scaling (horse = 1.0 reference)
+    const scale = SPRITE_SCALE[config.key] ?? 1.0;
+
+    // Rim light sprite — slightly larger, rendered behind main for edge glow
+    if (!this.isPlaceholder) {
+      this.rimSprite = scene.add.sprite(x, y, config.key, 0);
+      this.rimSprite.setOrigin(0.5, 1);
+      this.rimSprite.setScale(scale * RIM_SCALE_FACTOR);
+      this.rimSprite.setAlpha(RIM_ALPHA);
+      this.rimSprite.setTint(0xd4b896); // default dawn rim
+    }
+
     this.sprite = scene.add.sprite(x, y, config.key, 0);
     this.sprite.setOrigin(0.5, 1); // Anchor at feet for ground-line alignment
+    this.sprite.setScale(scale);
 
     // Create accessory overlays
     if (accessoryConfigs) {
@@ -67,18 +88,32 @@ export class CharacterSprite {
     // (Visual Style Guide §3: Secondary Motion)
     scene.tweens.add({
       targets: this.sprite,
-      scaleY: { from: 1.0, to: 1.015 },
+      scaleY: { from: scale, to: scale * 1.015 },
       duration: 2000,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut',
     });
 
+    // Sync breathing to rim sprite
+    if (this.rimSprite) {
+      const rimScale = scale * RIM_SCALE_FACTOR;
+      scene.tweens.add({
+        targets: this.rimSprite,
+        scaleY: { from: rimScale, to: rimScale * 1.015 },
+        duration: 2000,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    }
+
     // Sync breathing to accessories
     for (const acc of this.accessories.values()) {
+      acc.sprite.setScale(scale);
       scene.tweens.add({
         targets: acc.sprite,
-        scaleY: { from: 1.0, to: 1.015 },
+        scaleY: { from: scale, to: scale * 1.015 },
         duration: 2000,
         yoyo: true,
         repeat: -1,
@@ -115,6 +150,14 @@ export class CharacterSprite {
       this.applyPaceToAnimation();
     }
 
+    // Sync rim sprite to same animation
+    if (this.rimSprite && this.sprite.scene.anims.exists(key)) {
+      this.rimSprite.play(key);
+      const rowConfig = this.config.rows[state];
+      this.rimSprite.anims.msPerFrame =
+        1000 / (rowConfig.baseFrameRate * this.paceMultiplier);
+    }
+
     // Sync accessories to same state
     for (const acc of this.accessories.values()) {
       acc.syncState(state, this.paceMultiplier);
@@ -139,6 +182,7 @@ export class CharacterSprite {
     this.facing = direction;
     const flip = direction === FacingDirection.Left;
     this.sprite.setFlipX(flip);
+    this.rimSprite?.setFlipX(flip);
 
     for (const acc of this.accessories.values()) {
       acc.syncFacing(flip);
@@ -168,8 +212,11 @@ export class CharacterSprite {
   private applyPaceToAnimation(): void {
     if (this.sprite.anims.currentAnim) {
       const rowConfig = this.config.rows[this.currentState];
-      this.sprite.anims.msPerFrame =
-        1000 / (rowConfig.baseFrameRate * this.paceMultiplier);
+      const msPerFrame = 1000 / (rowConfig.baseFrameRate * this.paceMultiplier);
+      this.sprite.anims.msPerFrame = msPerFrame;
+      if (this.rimSprite?.anims.currentAnim) {
+        this.rimSprite.anims.msPerFrame = msPerFrame;
+      }
     }
   }
 
@@ -195,6 +242,7 @@ export class CharacterSprite {
 
   setPosition(x: number, y: number): void {
     this.sprite.setPosition(x, y);
+    this.rimSprite?.setPosition(x, y);
     for (const acc of this.accessories.values()) {
       acc.syncPosition();
     }
@@ -202,6 +250,7 @@ export class CharacterSprite {
 
   setVisible(visible: boolean): void {
     this.sprite.setVisible(visible);
+    this.rimSprite?.setVisible(visible);
     for (const acc of this.accessories.values()) {
       if (visible) {
         acc.syncPosition();
@@ -225,7 +274,14 @@ export class CharacterSprite {
     }
   }
 
+  /** Set the rim light glow color (time-of-day or fire tint). */
+  setRimTint(color: number): void {
+    this.rimSprite?.setTint(color);
+  }
+
   setDepth(depth: number): void {
+    // Rim renders behind main sprite
+    this.rimSprite?.setDepth(depth - 1);
     this.sprite.setDepth(depth);
     // Accessories render above base sprite
     let d = depth + 1;
@@ -239,6 +295,7 @@ export class CharacterSprite {
       acc.sprite.destroy();
     }
     this.accessories.clear();
+    this.rimSprite?.destroy();
     this.sprite.destroy();
   }
 

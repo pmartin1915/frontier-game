@@ -17,6 +17,7 @@ import { subscribePhaser } from '@/phaser/bridge';
 import {
   AnimationState,
   TIME_PALETTES,
+  RIM_COLORS,
   COMPANION_ACCESSORIES,
   SPRITE_EQUIPMENT_MAPPING,
   DURABILITY_VISUALS,
@@ -44,16 +45,16 @@ import { MAP_OBJECTS } from '@/types/map-objects';
 // TRAIL SCENE
 // ============================================================
 
-/** Shadow dimensions per entity type. */
+/** Shadow dimensions per entity type (scaled to match SPRITE_SCALE proportions). */
 const SHADOW_SIZES: Record<string, { w: number; h: number }> = {
   horse_riding_base: { w: 60, h: 5 },
   horse_riding_tack: { w: 60, h: 5 },
   horse_draft_base: { w: 60, h: 5 },
   horse_draft_harness: { w: 60, h: 5 },
-  wagon_prairie_schooner: { w: 80, h: 5 },
-  cat_mouser: { w: 20, h: 3 },
+  wagon_prairie_schooner: { w: 88, h: 5 },
+  cat_mouser: { w: 12, h: 2 },
 };
-const DEFAULT_SHADOW = { w: 40, h: 4 };
+const DEFAULT_SHADOW = { w: 30, h: 3 };
 
 /** Shadow alpha per time-of-day. */
 const SHADOW_ALPHA: Record<string, number> = {
@@ -481,6 +482,14 @@ export class TrailScene extends Phaser.Scene {
 
     // Update shadow intensity
     this.updateShadowAlpha(timeOfDay as string);
+
+    // Update rim light color on all sprites
+    const rimColor = RIM_COLORS[timeOfDay as TimeOfDay];
+    if (rimColor !== undefined) {
+      for (const sprite of this.sprites.values()) {
+        sprite.setRimTint(rimColor);
+      }
+    }
 
     // Store ambient tint and recompose with durability
     this.currentAmbientTint = Phaser.Display.Color.HexStringToColor(palette.ambient).color;

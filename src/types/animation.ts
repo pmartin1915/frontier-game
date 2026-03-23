@@ -181,6 +181,20 @@ export const TIME_PALETTES: Record<TimeOfDay, PaletteConfig> = {
   [TimeOfDay.Night]: { timeOfDay: TimeOfDay.Night, sky: '#1a1a3e', ambient: '#2a2a5e', shadow: '#0a0a1e', description: 'Deep blues, silver, campfire glow' },
 };
 
+/**
+ * Rim light colors per time-of-day for silhouette characters.
+ * The rim sprite behind each character is tinted with this color,
+ * creating an atmospheric edge glow that shifts across the day.
+ */
+export const RIM_COLORS: Record<TimeOfDay, number> = {
+  [TimeOfDay.Dawn]: 0xd4b896,      // pale gold
+  [TimeOfDay.Morning]: 0xf5deb3,   // warm wheat
+  [TimeOfDay.Midday]: 0xeeeedd,    // near-white (subtle)
+  [TimeOfDay.Afternoon]: 0xe8c078, // warm gold
+  [TimeOfDay.Sunset]: 0xff8844,    // bright orange
+  [TimeOfDay.Night]: 0x4466aa,     // cool blue moonlight
+};
+
 // ============================================================
 // PHASER COMMAND QUEUE
 // ============================================================

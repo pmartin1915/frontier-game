@@ -199,3 +199,25 @@ export function getAllSpriteKeys(): string[] {
 
 /** Total columns per sheet row (fixed grid). */
 export const SHEET_COLS = 8;
+
+/**
+ * Display scale per entity for correct proportions.
+ * Horse is the reference at 1.0; other entities scaled relative to it.
+ * A standing person is ~60-65% the height of a horse (shoulder + head).
+ */
+export const SPRITE_SCALE: Record<string, number> = {
+  horse_riding_base: 1.0,
+  horse_riding_tack: 1.0,
+  horse_draft_base: 1.0,
+  horse_draft_harness: 1.0,
+  player_cowboy: 0.75,
+  companion_elias_base: 0.72,
+  companion_elias_kepi: 0.72,
+  companion_luisa_base: 0.70,
+  companion_luisa_serape: 0.70,
+  companion_luisa_poncho: 0.70,
+  companion_tom_base: 0.74,
+  companion_tom_hat_bandana: 0.74,
+  wagon_prairie_schooner: 1.1,
+  cat_mouser: 0.6,
+};

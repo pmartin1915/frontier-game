@@ -90,9 +90,9 @@ export class CampScene extends Phaser.Scene {
         const cat = new CharacterSprite(this, width / 2 + 30, groundY, catConfig);
         cat.setDepth(12);
         cat.setFacing(FacingDirection.Left);
-        cat.setTint(0xffcc88);
+        cat.setRimTint(0xffcc88);
         this.campSprites.push(cat);
-        this.addCampShadow(width / 2 + 30, groundY, 20, 3);
+        this.addCampShadow(width / 2 + 30, groundY, 12, 2);
       }
     }
 
@@ -425,7 +425,7 @@ export class CampScene extends Phaser.Scene {
   private createSeatedCharacters(cx: number, groundY: number): void {
     const state = store.getState();
     let depth = 10;
-    const FIRE_TINT = 0xffcc88;
+    const FIRE_RIM = 0xffcc88; // warm campfire glow for rim light
 
     // Player (left of fire, facing right toward campfire)
     const playerConfig = SPRITE_CONFIGS['player_cowboy'];
@@ -433,9 +433,9 @@ export class CampScene extends Phaser.Scene {
       const player = new CharacterSprite(this, cx - 30, groundY, playerConfig);
       player.setDepth(depth++);
       player.setFacing(FacingDirection.Right);
-      player.setTint(FIRE_TINT);
+      player.setRimTint(FIRE_RIM);
       this.campSprites.push(player);
-      this.addCampShadow(cx - 30, groundY, 40, 4);
+      this.addCampShadow(cx - 30, groundY, 30, 3);
     }
 
     // Companions around fire — face toward the center
@@ -458,9 +458,9 @@ export class CampScene extends Phaser.Scene {
         const sprite = new CharacterSprite(this, pos.x, pos.y, config, accessories);
         sprite.setDepth(depth++);
         sprite.setFacing(pos.facing);
-        sprite.setTint(FIRE_TINT);
+        sprite.setRimTint(FIRE_RIM);
         this.campSprites.push(sprite);
-        this.addCampShadow(pos.x, pos.y, 40, 4);
+        this.addCampShadow(pos.x, pos.y, 30, 3);
       }
     }
   }
