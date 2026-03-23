@@ -1,0 +1,297 @@
+/**
+ * Frontier — FlexLayout Theme Overrides
+ *
+ * Overrides flexlayout-react's light theme CSS custom properties
+ * to match the western aesthetic: cream backgrounds, warm borders,
+ * Crimson Text serif font.
+ *
+ * Imported after the library's light.css in App.tsx.
+ */
+
+.flexlayout__layout {
+  /* Base colors */
+  --color-text: #1a1a1a;
+  --color-background: #fdfbf7;
+  --color-base: #fdfbf7;
+  --color-1: #f5f0e8;
+  --color-2: #ede6d9;
+  --color-3: #e8dcc8;
+  --color-4: #d9ccb0;
+  --color-5: #c4b08b;
+  --color-6: #a89770;
+
+  /* Drag colors — warm accent */
+  --color-drag1: #c4b08b;
+  --color-drag2: #5B3A29;
+  --color-drag1-background: rgba(196, 176, 139, 0.15);
+  --color-drag2-background: rgba(91, 58, 41, 0.1);
+
+  /* Typography */
+  --font-size: 12px;
+  --font-family: 'Crimson Text', Georgia, serif;
+
+  /* Tab colors */
+  --color-tab-selected: #1a1a1a;
+  --color-tab-selected-background: #ede6d9;
+  --color-tab-unselected: #6B6B6B;
+  --color-tab-unselected-background: transparent;
+
+  /* Tabset (tab bar area) */
+  --color-tabset-background: #fdfbf7;
+  --color-tabset-background-selected: #f5f0e8;
+  --color-tabset-background-maximized: #ede6d9;
+  --color-tabset-divider-line: #e8dcc8;
+  --color-tabset-header-background: #fdfbf7;
+  --color-tabset-header: #6B6B6B;
+
+  /* Tab content area */
+  --color-tab-content: #fdfbf7;
+
+  /* Splitter */
+  --color-splitter: #e8dcc8;
+  --color-splitter-hover: #d9ccb0;
+  --color-splitter-drag: #c4b08b;
+
+  /* Icons & toolbar */
+  --color-icon: #6B6B6B;
+  --color-overflow: #6B6B6B;
+  --color-toolbar-button-hover: #ede6d9;
+
+  /* Drag rect (the ghost panel while dragging) */
+  --color-drag-rect-border: #c4b08b;
+  --color-drag-rect-background: #e8dcc8;
+  --color-drag-rect: #1a1a1a;
+
+  /* Edge markers */
+  --color-edge-marker: #c4b08b;
+  --color-edge-icon: #5B3A29;
+}
+
+/* Tab strip — slightly smaller, uppercase labels */
+.flexlayout__tab_button_content {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Active tab — bottom accent border */
+.flexlayout__tab_button--selected {
+  border-bottom: 2px solid #c4b08b;
+}
+
+/* Border tab content area */
+.flexlayout__border_tab_content {
+  background-color: #fdfbf7;
+}
+
+/* ============================================================
+   Accessibility: focus-visible outlines
+   ============================================================ */
+:focus-visible {
+  outline: 2px solid #5B3A29;
+  outline-offset: 2px;
+}
+
+button:focus-visible,
+select:focus-visible,
+input:focus-visible {
+  outline: 2px solid #c4b08b;
+  outline-offset: 2px;
+}
+
+/* ============================================================
+   Button hover / active states
+   ============================================================ */
+button:hover:not(:disabled) {
+  filter: brightness(0.92);
+}
+
+button:active:not(:disabled) {
+  filter: brightness(0.85);
+}
+
+/* ============================================================
+   Overlay entry animations
+   ============================================================ */
+@keyframes frontierFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes frontierSlideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.frontier-overlay {
+  animation: frontierFadeIn 0.2s ease-out;
+}
+
+.frontier-overlay-card {
+  animation: frontierSlideUp 0.25s ease-out;
+}
+
+/* ============================================================
+   Travel Log entry fade-in
+   ============================================================ */
+@keyframes logEntryFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.log-entry--new {
+  animation: logEntryFadeIn 0.4s ease-out;
+}
+
+/* ============================================================
+   Composing indicator pulse
+   ============================================================ */
+@keyframes frontierPulse {
+  0%, 100% { opacity: 0.4; }
+  50%      { opacity: 1; }
+}
+
+.frontier-composing {
+  animation: frontierPulse 1.5s ease-in-out infinite;
+}
+
+/* ============================================================
+   Bargain overlay — dark pulsing glow
+   ============================================================ */
+@keyframes bargainGlow {
+  0%, 100% { box-shadow: 0 0 40px rgba(139, 37, 0, 0.3); }
+  50%      { box-shadow: 0 0 60px rgba(139, 37, 0, 0.6); }
+}
+
+.frontier-bargain-card {
+  animation: frontierSlideUp 0.3s ease-out, bargainGlow 3s ease-in-out infinite;
+}
+
+/* ============================================================
+   Living Map — CSS helper classes
+   ============================================================ */
+
+/* Utility: no pointer events on overlay layers */
+.map-no-pointer { pointer-events: none; }
+
+/* Fog overlay: very subtle breathing pulse */
+@keyframes mapFogBreath {
+  0%, 100% { opacity: 0.33; }
+  50%       { opacity: 0.27; }
+}
+.map-fog-pulse {
+  animation: mapFogBreath 6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* Time-of-day tint rect: smooth fill/opacity transitions */
+.map-tod-rect {
+  transition: fill 1.2s ease, opacity 1.2s ease;
+  pointer-events: none;
+}
+
+/* Biome zone polygon: opacity transition on active biome change */
+.map-biome-zone {
+  transition: opacity 0.6s ease;
+}
+
+/* Waypoint label: fade in as fog reveals it */
+.map-label-transition {
+  transition: opacity 0.5s ease;
+}
+
+/* Waypoint marker group: pointer cursor + opacity transition */
+.map-waypoint-marker {
+  cursor: default;
+  transition: opacity 0.4s ease;
+}
+
+/* Wagon wheel: smooth position glide */
+.map-wagon-wheel {
+  transition: transform 0.7s ease-in-out;
+}
+
+/* Fog mask reveal circles: smooth expansion */
+.map-fog-reveal {
+  transition: r 0.9s ease-out, cx 0.7s ease-in-out, cy 0.7s ease-in-out;
+}
+
+/* ============================================================
+   Living Map — Weather particle keyframes
+   ============================================================ */
+
+/* Rain / Storm */
+@keyframes mapRainfall {
+  from { transform: translate(0, 0); }
+  to   { transform: translate(-8px, 278px); }
+}
+@keyframes mapStormfall {
+  from { transform: translate(0, 0); }
+  to   { transform: translate(-14px, 278px); }
+}
+/* CSS vars --dur and --delay are set per-particle via inline style */
+.map-particle-rain {
+  animation: mapRainfall var(--dur, 1.5s) var(--delay, 0s) linear infinite;
+}
+.map-particle-storm {
+  animation: mapStormfall var(--dur, 1.0s) var(--delay, 0s) linear infinite;
+}
+
+/* Snow */
+@keyframes mapSnowfall {
+  0%   { transform: translate(0, 0);          opacity: 0.9; }
+  40%  { transform: translate(6px, 115px);    opacity: 0.85; }
+  100% { transform: translate(-3px, 280px);   opacity: 0; }
+}
+.map-particle-snow {
+  animation: mapSnowfall var(--dur, 5s) var(--delay, 0s) ease-in infinite;
+}
+
+/* Dust / Sandstorm */
+@keyframes mapDustDrift {
+  0%   { transform: translateX(0);     opacity: 0; }
+  12%  { opacity: 0.38; }
+  85%  { opacity: 0.26; }
+  100% { transform: translateX(450px); opacity: 0; }
+}
+.map-particle-dust {
+  animation: mapDustDrift var(--dur, 4s) var(--delay, 0s) linear infinite;
+}
+
+/* Heatwave shimmer */
+@keyframes mapHeatwave {
+  0%,  100% { opacity: 0.05; transform: translateY(0); }
+  50%        { opacity: 0.20; transform: translateY(-2px); }
+}
+.map-particle-heat {
+  animation: mapHeatwave var(--dur, 3s) var(--delay, 0s) ease-in-out infinite;
+}
+
+/* ============================================================
+   Mobile Responsive (< 768px)
+   ============================================================ */
+@media (max-width: 768px) {
+  /* Stack layout panels vertically */
+  .flexlayout__layout {
+    --splitter-size: 2px;
+  }
+
+  /* Larger touch targets for buttons */
+  button {
+    min-height: 44px;
+  }
+
+  /* Overlay cards fill mobile viewport */
+  .frontier-overlay-card {
+    width: 95% !important;
+    max-width: 95% !important;
+    max-height: 90vh !important;
+    overflow-y: auto !important;
+    padding: 16px !important;
+  }
+
+  /* Tab bar: full width tabs */
+  .flexlayout__tab_button_content {
+    font-size: 10px;
+  }
+}
