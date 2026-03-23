@@ -1,14 +1,5 @@
-import { useState } from 'react';
-import { Layout, Model } from 'flexlayout-react';
-import type { TabNode } from 'flexlayout-react';
-import type { IJsonModel } from 'flexlayout-react';
-import 'flexlayout-react/style/light.css';
 import './ui/layout/frontier-theme.css';
 
-import TravelLog from './ui/panels/TravelLog';
-import AnimationPanel from './ui/panels/AnimationPanel';
-import HUD from './ui/panels/HUD';
-import MapPanel from './ui/panels/MapPanel';
 import DecisionOverlay from './ui/overlays/DecisionOverlay';
 import BargainOverlay from './ui/overlays/BargainOverlay';
 import MorningBriefing from './ui/overlays/MorningBriefing';
@@ -18,26 +9,21 @@ import GameEndScreen from './ui/overlays/GameEndScreen';
 import NewGameScreen from './ui/overlays/NewGameScreen';
 import ErrorToast from './ui/components/ErrorToast';
 import { ErrorBoundary } from './ui/components/ErrorBoundary';
-import { colors } from './ui/theme';
+import DesktopLayout from './ui/layout/DesktopLayout';
+import MobileLayout from './ui/layout/MobileLayout';
+import { useIsMobile } from './ui/hooks/useIsMobile';
 import { initAutoPlayer } from './engine/auto-player';
 import { initAudio } from './audio';
 import { store } from './store';
 
 // Initialize the auto-player subscription once at module load.
-// The player stays dormant until store.setAutoPlay(true) is called.
 initAutoPlayer();
 
 // Initialize the audio system (subscriptions + Howler context).
-// No-op in non-browser environments.
 initAudio();
 
-// ---------------------------------------------------------------------------
 // Dev-only: push game state to Vite agent bridge on every phase change.
-// Allows external AI tools to observe state via GET /api/agent/state.
-// Also polls GET /api/agent/command and executes queued actions.
-// ---------------------------------------------------------------------------
 if (import.meta.env.DEV) {
-  // Push state snapshot whenever the daily cycle phase changes
   store.subscribe(
     (s) => s.dailyCyclePhase,
     () => {
@@ -64,7 +50,6 @@ if (import.meta.env.DEV) {
     },
   );
 
-  // Poll for commands queued by external AI agents
   const pollCommands = async () => {
     try {
       const resp = await fetch('/api/agent/command');
@@ -101,105 +86,13 @@ if (import.meta.env.DEV) {
   setInterval(pollCommands, 1500);
 }
 
-/**
- * Root layout: free-form docking via flexlayout-react.
- *
- * Default arrangement matches GDD §8.1:
- *   Left column:  Travel Log (full height)
- *   Right column: Animation (top), HUD (middle), Map (bottom)
- *
- * All panels are draggable — drag a tab to rearrange, split,
- * or dock into any position. Double-click maximize button to
- * expand a panel.
- */
-
-const LAYOUT_JSON: IJsonModel = {
-  global: {
-    tabEnableClose: false,
-    tabEnableRename: false,
-    tabSetEnableMaximize: true,
-    tabSetEnableSingleTabStretch: true,
-    splitterSize: 6,
-    splitterEnableHandle: true,
-    tabSetMinHeight: 60,
-    tabSetMinWidth: 60,
-  },
-  layout: {
-    type: 'row',
-    children: [
-      {
-        type: 'tabset',
-        weight: 50,
-        children: [
-          { type: 'tab', name: 'Travel Log', component: 'travelLog' },
-        ],
-      },
-      {
-        type: 'row',
-        weight: 50,
-        children: [
-          {
-            type: 'tabset',
-            weight: 50,
-            children: [
-              { type: 'tab', name: 'Animation', component: 'animation' },
-            ],
-          },
-          {
-            type: 'tabset',
-            weight: 25,
-            children: [
-              { type: 'tab', name: 'HUD', component: 'hud' },
-            ],
-          },
-          {
-            type: 'tabset',
-            weight: 25,
-            children: [
-              { type: 'tab', name: 'Map', component: 'map' },
-            ],
-          },
-        ],
-      },
-    ],
-  },
-};
-
-/** Map component IDs to React elements. */
-function panelFactory(node: TabNode): React.ReactNode {
-  switch (node.getComponent()) {
-    case 'travelLog':
-      return <TravelLog />;
-    case 'animation':
-      return (
-        <div style={{ background: colors.text, width: '100%', height: '100%' }}>
-          <AnimationPanel />
-        </div>
-      );
-    case 'hud':
-      return (
-        <div style={{ padding: '12px', overflow: 'auto', height: '100%' }}>
-          <HUD />
-        </div>
-      );
-    case 'map':
-      return (
-        <div style={{ padding: '12px', overflowY: 'auto', height: '100%' }}>
-          <MapPanel />
-        </div>
-      );
-    default:
-      return null;
-  }
-}
-
 export default function App() {
-  const [model] = useState(() => Model.fromJson(LAYOUT_JSON));
+  const isMobile = useIsMobile();
 
   return (
     <ErrorBoundary>
       <div style={styles.container}>
-        <Layout model={model} factory={panelFactory} />
+        {isMobile ? <MobileLayout /> : <DesktopLayout />}
         <MorningBriefing />
         <DecisionOverlay />
         <BargainOverlay />

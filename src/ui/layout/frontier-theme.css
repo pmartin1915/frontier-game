@@ -268,14 +268,32 @@ button:active:not(:disabled) {
 }
 
 /* ============================================================
+   Mobile Layout Components
+   ============================================================ */
+
+/* Bottom sheet slide-up animation */
+@keyframes slideUpSheet {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+.mobile-day-sheet {
+  animation: slideUpSheet 0.25s ease-out;
+}
+
+.mobile-modal-enter {
+  animation: frontierFadeIn 0.15s ease-out;
+}
+
+.mobile-hud-bar {
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+/* ============================================================
    Mobile Responsive (< 768px)
    ============================================================ */
 @media (max-width: 768px) {
-  /* Stack layout panels vertically */
-  .flexlayout__layout {
-    --splitter-size: 2px;
-  }
-
   /* Larger touch targets for buttons */
   button {
     min-height: 44px;
@@ -288,10 +306,5 @@ button:active:not(:disabled) {
     max-height: 90vh !important;
     overflow-y: auto !important;
     padding: 16px !important;
-  }
-
-  /* Tab bar: full width tabs */
-  .flexlayout__tab_button_content {
-    font-size: 10px;
   }
 }

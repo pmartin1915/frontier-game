@@ -65,7 +65,7 @@ export default function AnimationPanel() {
           Phaser failed to initialize. Check console.
         </div>
       )}
-      {bridgeStatus === 'connected' && (
+      {bridgeStatus === 'connected' && import.meta.env.DEV && (
         <div style={styles.bridgeIndicator}>Bridge: Connected</div>
       )}
     </div>
