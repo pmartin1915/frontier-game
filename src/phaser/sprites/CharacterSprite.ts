@@ -42,6 +42,8 @@ export class CharacterSprite {
   private paceMultiplier = 1.0;
   private accessories: Map<string, AccessoryOverlay> = new Map();
   private isPlaceholder: boolean;
+  private walkBobTween?: Phaser.Tweens.Tween;
+  private baseY = 0;
 
   constructor(
     scene: Phaser.Scene,
@@ -73,6 +75,7 @@ export class CharacterSprite {
     this.sprite = scene.add.sprite(x, y, config.key, 0);
     this.sprite.setOrigin(0.5, 1); // Anchor at feet for ground-line alignment
     this.sprite.setScale(scale);
+    this.baseY = y;
 
     // Create accessory overlays
     if (accessoryConfigs) {
@@ -150,6 +153,9 @@ export class CharacterSprite {
       this.applyPaceToAnimation();
     }
 
+    // Walk-bob: gentle vertical bounce to convey movement
+    this.updateWalkBob(state);
+
     // Sync rim sprite to same animation
     if (this.rimSprite && this.sprite.scene.anims.exists(key)) {
       this.rimSprite.play(key);
@@ -217,6 +223,36 @@ export class CharacterSprite {
       if (this.rimSprite?.anims.currentAnim) {
         this.rimSprite.anims.msPerFrame = msPerFrame;
       }
+    }
+  }
+
+  /**
+   * Start or stop a gentle vertical bob to convey walking movement.
+   * More effective than relying on leg-frame detail in silhouettes.
+   */
+  private updateWalkBob(state: AnimationState): void {
+    const isWalking = state === AnimationState.Walk || state === AnimationState.Run;
+
+    if (isWalking && !this.walkBobTween) {
+      const bobAmount = state === AnimationState.Run ? 3 : 2;
+      const bobDuration = state === AnimationState.Run ? 250 : 400;
+      const targets = [this.sprite];
+      if (this.rimSprite) targets.push(this.rimSprite);
+
+      this.walkBobTween = this.sprite.scene.tweens.add({
+        targets,
+        y: { from: this.baseY, to: this.baseY - bobAmount },
+        duration: bobDuration,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    } else if (!isWalking && this.walkBobTween) {
+      this.walkBobTween.stop();
+      this.walkBobTween = undefined;
+      // Reset to base position
+      this.sprite.y = this.baseY;
+      if (this.rimSprite) this.rimSprite.y = this.baseY;
     }
   }
 

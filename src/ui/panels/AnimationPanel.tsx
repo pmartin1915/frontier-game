@@ -21,13 +21,15 @@ export default function AnimationPanel() {
     const config: Phaser.Types.Core.GameConfig = {
       type: Phaser.AUTO,
       parent: containerRef.current,
-      width: containerRef.current.clientWidth,
-      height: containerRef.current.clientHeight,
+      width: 640,
+      height: 360,
       backgroundColor: '#1a1a1a',
       pixelArt: true,
       scale: {
-        mode: Phaser.Scale.RESIZE,
+        mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH,
+        width: 640,
+        height: 360,
       },
       scene: [PreloadScene, TrailScene, CampScene],
     };
@@ -49,7 +51,18 @@ export default function AnimationPanel() {
       gameRef.current.events.on('camp-ready', onCampReady);
     }
 
+    // Resize handler for orientation changes on mobile
+    const handleResize = () => {
+      if (gameRef.current) {
+        gameRef.current.scale.refresh();
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
+
     return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
       if (gameRef.current) {
         gameRef.current.events.off('camp-ready', onCampReady);
         gameRef.current.destroy(true);
