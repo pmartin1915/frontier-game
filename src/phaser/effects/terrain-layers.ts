@@ -170,6 +170,7 @@ export class TerrainLayers {
     if (!canvas) return;
 
     const ctx = canvas.getContext();
+    if (!ctx) return;
     ctx.clearRect(0, 0, w, h);
 
     const layerDef = LAYER_DEFS[layerIndex];

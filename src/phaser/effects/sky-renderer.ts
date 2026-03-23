@@ -316,6 +316,7 @@ export class SkyRenderer {
     if (!canvas) return;
 
     const ctx = canvas.getContext();
+    if (!ctx) return;
     const gradient = ctx.createLinearGradient(0, 0, 0, h);
     gradient.addColorStop(0, def.top);
     gradient.addColorStop(0.5, def.mid);
@@ -334,6 +335,7 @@ export class SkyRenderer {
     if (!canvas) return;
 
     const ctx = canvas.getContext();
+    if (!ctx) return;
     const gradient = ctx.createLinearGradient(0, 0, 0, h);
     gradient.addColorStop(0, def.top);
     gradient.addColorStop(0.4, def.mid);
@@ -402,6 +404,7 @@ export class SkyRenderer {
     };
 
     const ctx = canvas.getContext();
+    if (!ctx) return;
     // Blend from transparent sky-bottom → haze color → transparent ground-top
     const gradient = ctx.createLinearGradient(0, 0, 0, h);
     gradient.addColorStop(0, hexRgba(skyDef?.bottom ?? '#000000', 0));

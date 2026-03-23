@@ -22,6 +22,7 @@
     "simulate:full": "npx tsx src/simulator/index.ts --runs=50 --days=100 --strategy=optimal",
     "test:narrator": "npx tsx src/scripts/test-narrator.ts",
     "test:e2e": "npx playwright test",
+    "test:auto-play": "npx playwright test e2e/auto-play.spec.ts",
     "test:visual": "npx playwright test e2e/visual-regression.spec.ts",
     "test:visual:update": "npx playwright test e2e/visual-regression.spec.ts --update-snapshots",
     "screenshot": "npx tsx src/scripts/screenshot.ts",

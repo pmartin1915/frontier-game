@@ -144,6 +144,7 @@ export class CampScene extends Phaser.Scene {
     if (!canvas) return;
 
     const ctx = canvas.getContext();
+    if (!ctx) return;
     const gradient = ctx.createLinearGradient(0, 0, 0, groundY);
     gradient.addColorStop(0, '#060814');     // Deep black-blue zenith
     gradient.addColorStop(0.4, '#0e1428');   // Dark indigo
@@ -166,6 +167,7 @@ export class CampScene extends Phaser.Scene {
     if (!canvas) return;
 
     const ctx = canvas.getContext();
+    if (!ctx) return;
     const gradient = ctx.createLinearGradient(0, 0, 0, groundH);
     gradient.addColorStop(0, '#2e2a1e');   // Warm dark brown at horizon (campfire glow)
     gradient.addColorStop(0.3, '#1e1a12'); // Dark earth

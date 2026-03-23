@@ -229,28 +229,28 @@ export class TrailScene extends Phaser.Scene {
     const { width } = this.cameras.main;
     const centerX = Math.floor(width * 0.55);
 
-    // Position characters along the ground line: horse → player → companions → wagon → cat
+    // Position: player leads (rightmost), horse behind, companions, wagon, cat
     const spacing = 48;
     let x = centerX;
     let depth = 10;
 
-    // Horse (riding)
-    const horseConfig = SPRITE_CONFIGS['horse_riding_base'];
-    if (horseConfig) {
-      const horse = new CharacterSprite(this, x, groundY, horseConfig);
-      horse.setDepth(depth++);
-      this.sprites.set('horse_riding_base', horse);
-      this.createShadow('horse_riding_base', x, groundY);
-    }
-
-    // Player
-    x -= spacing;
+    // Player (leading the party)
     const playerConfig = SPRITE_CONFIGS['player_cowboy'];
     if (playerConfig) {
       const player = new CharacterSprite(this, x, groundY, playerConfig);
       player.setDepth(depth++);
       this.sprites.set('player_cowboy', player);
       this.createShadow('player_cowboy', x, groundY);
+    }
+
+    // Horse (just behind the player)
+    x -= spacing;
+    const horseConfig = SPRITE_CONFIGS['horse_riding_base'];
+    if (horseConfig) {
+      const horse = new CharacterSprite(this, x, groundY, horseConfig);
+      horse.setDepth(depth++);
+      this.sprites.set('horse_riding_base', horse);
+      this.createShadow('horse_riding_base', x, groundY);
     }
 
     // Companions (from store)
@@ -404,6 +404,23 @@ export class TrailScene extends Phaser.Scene {
       subscribePhaser(
         (s) => s.player.equipment,
         (equipment) => this.applyEquipmentDegradation(equipment),
+      ),
+    );
+
+    // Daily cycle phase → animate sprites during travel
+    this.unsubscribers.push(
+      subscribePhaser(
+        (s) => s.dailyCyclePhase,
+        (phase) => {
+          const targetState = phase === 'travel'
+            ? AnimationState.Walk
+            : AnimationState.Idle;
+          for (const sprite of this.sprites.values()) {
+            if (sprite.sprite.visible && sprite.getCurrentState() !== targetState) {
+              sprite.playState(targetState);
+            }
+          }
+        },
       ),
     );
   }

@@ -162,6 +162,7 @@ export class PreloadScene extends Phaser.Scene {
     if (!rt) return;
 
     const ctx = rt.getContext();
+    if (!ctx) return;
     const r = (color >> 16) & 0xff;
     const g = (color >> 8) & 0xff;
     const b = color & 0xff;
