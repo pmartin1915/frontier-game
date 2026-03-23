@@ -239,7 +239,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "npm run -- tauri ios xcode-script -v --platform ${PLATFORM_DISPLAY_NAME:?} --sdk-root ${SDKROOT:?} --framework-search-paths \"${FRAMEWORK_SEARCH_PATHS:?}\" --header-search-paths \"${HEADER_SEARCH_PATHS:?}\" --gcc-preprocessor-definitions \"${GCC_PREPROCESSOR_DEFINITIONS:-}\" --configuration ${CONFIGURATION:?} ${FORCE_COLOR} ${ARCHS:?}";
+			shellScript = "set -e\n\n# Determine Rust target from Xcode ARCHS\nif [ \"$ARCHS\" = \"arm64\" ]; then\n  RUST_TARGET=\"aarch64-apple-ios\"\nelif [ \"$ARCHS\" = \"x86_64\" ]; then\n  RUST_TARGET=\"x86_64-apple-ios\"\nelse\n  echo \"Error: Unsupported architecture: $ARCHS\"\n  exit 1\nfi\n\n# Determine cargo profile from Xcode CONFIGURATION\nCARGO_PROFILE_FLAG=\"\"\nPROFILE_DIR=\"debug\"\nif [ \"$CONFIGURATION\" = \"release\" ] || [ \"$CONFIGURATION\" = \"Release\" ]; then\n  CARGO_PROFILE_FLAG=\"--release\"\n  PROFILE_DIR=\"release\"\nfi\n\necho \"Building Rust for $RUST_TARGET ($CONFIGURATION)...\"\n\n# Build Rust code directly (workaround for tauri-cli --configuration cargo bug)\ncd \"$SRCROOT/../..\"\ncargo build --target \"$RUST_TARGET\" --features tauri/custom-protocol --lib $CARGO_PROFILE_FLAG 2>&1\n\n# Copy static library to where Xcode expects it\nmkdir -p \"$SRCROOT/Externals/$ARCHS/$CONFIGURATION\"\ncp \"target/$RUST_TARGET/$PROFILE_DIR/libapp_lib.a\" \"$SRCROOT/Externals/$ARCHS/$CONFIGURATION/libapp.a\"\necho \"Rust build complete: libapp.a copied to Externals/$ARCHS/$CONFIGURATION/\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
