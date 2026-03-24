@@ -132,21 +132,7 @@ export const COMPANION_ACCESSORIES: Record<CompanionId, AccessoryConfig[]> = {
       ],
     },
   ],
-  [CompanionId.LuisaVega]: [
-    {
-      id: 'vega-serape', owner: CompanionId.LuisaVega,
-      spriteKey: 'companion_luisa_serape', visible: true,
-      offsetX: 0, offsetY: 0, flipExempt: false,
-    },
-    {
-      id: 'vega-poncho', owner: CompanionId.LuisaVega,
-      spriteKey: 'companion_luisa_poncho', visible: false,
-      offsetX: 0, offsetY: 0, flipExempt: false,
-      toggleConditions: [
-        { type: 'weather', showWhen: 'rain', hideWhen: 'clear' },
-      ],
-    },
-  ],
+  [CompanionId.LuisaVega]: [],
   [CompanionId.TomBlanchard]: [
     {
       id: 'blanchard-bandana', owner: CompanionId.TomBlanchard,
