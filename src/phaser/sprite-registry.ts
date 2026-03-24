@@ -202,18 +202,18 @@ export const SHEET_COLS = 8;
 
 /**
  * Display scale per entity for correct proportions on a 640x360 canvas.
- * Cowboy rendered ~42px tall, horse ~44px tall (slightly taller to shoulder).
- * Scales tuned from real device testing — previous values made horse 2x player size.
+ * Cowboy rendered ~35px tall, horse ~44px tall (horse clearly taller).
+ * Scales tuned from real device testing — player 0.55 keeps cowboy proportional to horse.
  */
 export const SPRITE_SCALE: Record<string, number> = {
-  player_cowboy: 0.65,
-  companion_elias_base: 0.62,
-  companion_elias_kepi: 0.62,
-  companion_luisa_base: 0.60,
-  companion_luisa_serape: 0.60,
-  companion_luisa_poncho: 0.60,
-  companion_tom_base: 0.63,
-  companion_tom_hat_bandana: 0.63,
+  player_cowboy: 0.50,
+  companion_elias_base: 0.52,
+  companion_elias_kepi: 0.52,
+  companion_luisa_base: 0.50,
+  companion_luisa_serape: 0.50,
+  companion_luisa_poncho: 0.50,
+  companion_tom_base: 0.53,
+  companion_tom_hat_bandana: 0.53,
   horse_riding_base: 0.55,
   horse_riding_tack: 0.55,
   horse_draft_base: 0.55,

@@ -8,12 +8,14 @@ import type { IncomingMessage } from 'http';
 // ---------------------------------------------------------------------------
 interface NarratorPrompt {
   systemMessage: string;
+  voice: string;
   ledgerContext: string;
   characterBibles: string;
   previousEntry: string;
   eventRecord: string;
   gameStateSnapshot: string;
   voiceDirective: string;
+  encounterContext: string;
 }
 
 interface NarratorApiResponse {
@@ -39,26 +41,6 @@ function readBody(req: IncomingMessage): Promise<string> {
   });
 }
 
-function buildUserText(p: NarratorPrompt): string {
-  return [
-    p.ledgerContext,
-    p.characterBibles,
-    p.previousEntry,
-    p.eventRecord,
-    p.gameStateSnapshot,
-    p.voiceDirective,
-  ]
-    .filter(Boolean)
-    .join('\n\n');
-}
-
-function buildMessages(p: NarratorPrompt) {
-  return [
-    { role: 'system', content: p.systemMessage },
-    { role: 'user', content: buildUserText(p) },
-  ];
-}
-
 async function callMoonshot(
   prompt: NarratorPrompt,
   apiKey: string,
@@ -71,7 +53,10 @@ async function callMoonshot(
     },
     body: JSON.stringify({
       model: 'moonshot-v1-8k',
-      messages: buildMessages(prompt),
+      messages: [
+        { role: 'system', content: prompt.systemMessage },
+        { role: 'user', content: assembleXMLUserContent(prompt) },
+      ],
       max_tokens: 500,
     }),
   });
@@ -99,7 +84,7 @@ async function callGemini(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: prompt.systemMessage }] },
-      contents: [{ role: 'user', parts: [{ text: buildUserText(prompt) }] }],
+      contents: [{ role: 'user', parts: [{ text: assembleXMLUserContent(prompt) }] }],
       generationConfig: { maxOutputTokens: 500 },
     }),
   });
@@ -114,6 +99,114 @@ async function callGemini(
       input_tokens: data.usageMetadata?.promptTokenCount,
       output_tokens: data.usageMetadata?.candidatesTokenCount,
     },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Anthropic support (ported from api/narrator.ts for dev/prod parity)
+// ---------------------------------------------------------------------------
+
+const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
+const ANTHROPIC_MODEL = 'claude-sonnet-4-6';
+
+const VOICE_CONFIG: Record<string, { temperature: number; maxTokens: number }> = {
+  adams:    { temperature: 0.65, maxTokens: 400 },
+  irving:   { temperature: 0.75, maxTokens: 600 },
+  mcmurtry: { temperature: 0.55, maxTokens: 450 },
+};
+const VOICE_CONFIG_DEFAULT = { temperature: 0.65, maxTokens: 450 };
+
+/**
+ * Assemble user turn as structured XML (matches production api/narrator.ts).
+ * XML forces the model to render game state through its voice lens
+ * rather than copying input phrasing.
+ */
+function assembleXMLUserContent(prompt: NarratorPrompt): string {
+  const parts: string[] = [];
+
+  const narrativeParts: string[] = [];
+  if (prompt.ledgerContext) {
+    narrativeParts.push(`<ledger>\n${prompt.ledgerContext}\n</ledger>`);
+  }
+  if (prompt.characterBibles) {
+    narrativeParts.push(`<character_bibles>\n${prompt.characterBibles}\n</character_bibles>`);
+  }
+  if (prompt.previousEntry) {
+    narrativeParts.push(`<previous_entry>\n${prompt.previousEntry}\n</previous_entry>`);
+  }
+  if (narrativeParts.length > 0) {
+    parts.push(`<narrative_context>\n${narrativeParts.join('\n')}\n</narrative_context>`);
+  }
+
+  if (prompt.gameStateSnapshot) {
+    parts.push(`<game_state>\n${prompt.gameStateSnapshot}\n</game_state>`);
+  }
+  if (prompt.eventRecord) {
+    parts.push(`<event_record>\n${prompt.eventRecord}\n</event_record>`);
+  }
+  if (prompt.voiceDirective) {
+    parts.push(`<voice_directive>\n${prompt.voiceDirective}\n</voice_directive>`);
+  }
+  if (prompt.encounterContext) {
+    parts.push(`<encounter_context>\n${prompt.encounterContext}\n</encounter_context>`);
+  }
+
+  parts.push(`<generation_request>
+Write the journal entry now. Output only the prose — no headers, no labels, no game mechanics.
+</generation_request>`);
+
+  return parts.join('\n\n');
+}
+
+async function callAnthropic(
+  prompt: NarratorPrompt,
+  apiKey: string,
+): Promise<NarratorApiResponse> {
+  const voiceCfg = VOICE_CONFIG[prompt.voice || ''] ?? VOICE_CONFIG_DEFAULT;
+
+  const resp = await fetch(ANTHROPIC_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: ANTHROPIC_MODEL,
+      max_tokens: voiceCfg.maxTokens,
+      temperature: voiceCfg.temperature,
+      system: [
+        {
+          type: 'text',
+          text: prompt.systemMessage,
+          cache_control: { type: 'ephemeral' },
+        },
+      ],
+      messages: [
+        {
+          role: 'user',
+          content: assembleXMLUserContent(prompt),
+        },
+      ],
+    }),
+  });
+
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`Anthropic ${resp.status}: ${text}`);
+  }
+
+  const data = await resp.json();
+  return {
+    content: data.content,
+    usage: data.usage
+      ? {
+          input_tokens: data.usage.input_tokens,
+          output_tokens: data.usage.output_tokens,
+          cache_read_input_tokens: data.usage.cache_read_input_tokens,
+          cache_creation_input_tokens: data.usage.cache_creation_input_tokens,
+        }
+      : undefined,
   };
 }
 
@@ -255,18 +348,23 @@ export default defineConfig(({ mode }) => {
               };
 
               let result: NarratorApiResponse;
-              if (provider === 'gemini') {
+              if (provider === 'anthropic') {
+                result = await callAnthropic(prompt, env.ANTHROPIC_API_KEY);
+              } else if (provider === 'gemini') {
                 result = await callGemini(prompt, env.GEMINI_API_KEY);
               } else {
                 result = await callMoonshot(prompt, env.MOONSHOT_API_KEY);
               }
 
+              const text = result.content?.[0]?.text || '';
+              console.log(`[narrator-dev-proxy] ${provider} → ${text.length} chars, ${result.usage?.output_tokens ?? '?'} tokens`);
+
               res.setHeader('Content-Type', 'application/json');
               res.end(JSON.stringify(result));
             } catch (e) {
               console.error('[narrator-dev-proxy]', e);
-              res.statusCode = 500;
-              res.end(JSON.stringify({ error: String(e) }));
+              res.statusCode = 502;
+              res.end(JSON.stringify({ error: 'Narrator API error' }));
             }
           });
         },

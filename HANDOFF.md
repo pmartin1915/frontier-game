@@ -1,131 +1,131 @@
-# Agent Handoff Document
-<!-- Generated 2026-03-23 -->
+# Frontier — Session Handoff (2026-03-24, Session 5)
 
 ## Handoff Metadata
 
-- **Timestamp:** 2026-03-23T21:20
+- **Timestamp:** 2026-03-24T17:15
 - **Sending Agent:** Claude Opus 4.6 (Claude Code)
-- **Reason:** Context window approaching limit after extended session
-- **Branch:** main
-- **Latest tag:** v1.0.4 (building → TestFlight)
+- **Reason:** Session complete — narrator wired, sprites fixed, playtest sweep built
+- **Branch:** main (uncommitted changes — see below)
+- **Previous commit:** `0851a6d` fix: regenerate 3 sprites + disable broken accessories
+- **Tests:** 401/401 Vitest, 28/29 Playwright (1 pre-existing SkyRenderer issue), TypeScript clean
 
 ## What Was Done This Session
 
-### Phase 8: Polish & Feel (complete)
-- Scene fade transitions (400ms camera fadeOut/fadeIn)
-- ErrorBoundary + toast system (success/error, aria-live)
-- Keyboard navigation (Escape closes overlays)
-- Mobile responsive CSS + HelpCard
-- 7 Playwright e2e tests for Phase 8 features
+### 1. Narrator End-to-End Wiring (MAJOR)
 
-### iOS TestFlight Pipeline (complete)
-- Tauri 2.10 wrapper (WKWebView)
-- Bundle ID: `com.perrymartin.frontier`, App Store name: "Frontier Trail"
-- GitHub Actions: `ios-build.yml` + `ios-init.yml`
-- Custom cargo build script (tauri-cli --configuration bug workaround)
-- Version strategy: `1.0.<github.run_number>` (auto-increments)
-- 8 GitHub secrets configured, app icon generated (western sunset silhouette)
-- App Store Connect app record created, tester added
+The narrator system was 95% built but the dev proxy didn't support Anthropic. Now fully working.
 
-### Mobile Layout Redesign (complete)
-- `useIsMobile` hook (767px breakpoint)
-- `MobileLayout`: full-screen Phaser canvas + bottom HUD bar + modal system
-- `MobileHudBar`, `MobileModal`, `MobileStatsPanel`, `MobileDaySheet`
-- Desktop flexlayout preserved for >=768px
+**Changes to `vite.config.ts`:**
+- Added `callAnthropic()` with prompt caching (`cache_control: ephemeral`), per-voice temperature/max_tokens, XML user content assembly
+- Added `VOICE_CONFIG` (Adams 0.65/400, Irving 0.75/600, McMurtry 0.55/450)
+- Added `assembleXMLUserContent()` — matches production `api/narrator.ts` exactly
+- Updated Moonshot and Gemini to also use XML assembly (dev/prod parity)
+- Fixed error leakage: dev proxy now returns generic error to browser (was leaking upstream API details)
+- Added console logging for narrator response metrics
 
-### Silhouette Sprite Pivot (complete)
-- `scripts/generate-silhouettes.py` converts all 14 character sprite sheets
-- `scripts/silhouette-objects.py` converts all 26 scenery object PNGs
-- Rim light system: second sprite per character, tinted by time-of-day (RIM_COLORS)
-- Color backups as `*_color_backup.png`
+**Changes to `.env.local`:**
+- `ANTHROPIC_API_KEY` set (Perry's key, $1.49 budget remaining)
+- `VITE_NARRATOR_PROVIDER=anthropic` (was `gemini`)
 
-### Bug Fixes from Device Testing (complete, deploying in v1.0.4)
-- Canvas context null-checks (8 locations) — prevents WKWebView black screen
-- Player leads party (rightmost position)
-- Sprites animate to Walk during travel → triggers parallax scroll
-- **v1.0.4 fixes (just committed):**
-  - Phaser Scale.RESIZE → Scale.FIT (640×360, 16:9 preserved, works in landscape)
-  - Resize + orientationchange listener for viewport rotation
-  - viewport-fit=cover in index.html
-  - SPRITE_SCALE rebalanced: player 0.65, horse 0.55 (was 1.0 = grotesquely oversized)
-  - Walk-bob tween (2-3px vertical bounce during Walk/Run)
-  - Camp scene: warm fill tint (0x442200) + fire rim so silhouettes visible at night
+**Verified working:** Claude Sonnet generates period-accurate Andy Adams prose. ~7.7s latency, ~190 output tokens, ~$0.008/call.
 
-### Auto-Play Test Harness (complete)
-- `e2e/auto-play.spec.ts` — plays 20 days via built-in auto-player
-- Validates: no negative health/water/food, no soft-locks, canvas stays visible
-- `npm run test:auto-play`
+### 2. Daily Cycle Resilience Fix
 
-## Current Test Status
-- **401 Vitest** — all passing
-- **28 Playwright** (sprites + visual regression + phase8 polish) — all passing
-- **1 Auto-play** (20-day run) — passing
-- TypeScript clean
+**`src/engine/daily-cycle.ts`:**
+- Wrapped `applyDayResults()` in try-catch so SkyRenderer texture errors in headless mode don't prevent `applyNarratorResponse()` from running
+- Added **travel animation delay**: 3 seconds normal play, 1.5 seconds auto-play — sprites now visibly walk with parallax before day resolves
 
-## What's Next (Prioritized)
+### 3. Horse Sprite Fixes
 
-### 1. Sprite Quality Pipeline (HIGH — user's next request)
-The user shared a sprite visual review pipeline prompt from their Wilderness project. The idea: use Gemini vision to triage each spritesheet, identify bad frames (especially horse front legs which never lift), and iterate until quality passes. Key reference:
-- Sprite-Forge at `C:\Users\perry\DevProjects\sprite-forge\`
-- 13 entities, silhouette style with rim highlights
-- Horse walk cycle is the worst offender — front legs barely move
-- Current workaround: walk-bob tween hides the stiffness
-- Long-term: regenerate with better AI or hand-edit silhouette frames
+**Problem:** Horse spritesheet had inconsistent frame directions. Idle frame 1 was reversed, Run row (Row 2) faced opposite direction from all other rows.
 
-### 2. Verify v1.0.4 on Device
-- Scale.FIT should fix landscape black void
-- Proportions should look correct (horse no longer 2x player size)
-- Walk-bob should convey movement
-- Camp characters should be visible at night
+**Fix (from clean backup):**
+- `horse_riding_base.png`: Flipped idle frame 1 + all 6 Run row frames
+- `horse_draft_base.png`: Same fix applied
+- Backups preserved as `*_pre_flip_fix.png`
 
-### 3. Haptics + Sound
-- iOS Taptic Engine feedback on button presses, encounters, day transitions
-- Verify audio works in WKWebView (autoplay policies)
-- Audio system already implemented (Web Audio + Howler.js) — needs iOS testing
+### 4. Sprite Scale Rebalance
 
-### 4. Narrator API in Production
-- Claude Sonnet narrative engine needs Vercel edge proxy wired up
-- Without it, only fallback text appears in Travel Log
-- API key: ANTHROPIC_API_KEY in Vercel env vars
+**`src/phaser/sprite-registry.ts`:**
+- `player_cowboy`: 0.65 → **0.50** (64px × 0.50 = 32px, more proportional to horse)
+- Companions scaled down: Elias 0.52, Luisa 0.50, Tom 0.53 (from 0.60-0.63)
+- Horse/wagon/cat unchanged (0.55/0.55/0.35)
 
-### 5. World Polish
-- Increase scenery object density for richer landscapes
-- Add more parallax depth layers
-- Verify dust particles emit during travel
-- Consider landscape orientation lock for gameplay
+### 5. Playtest Sweep Script (NEW)
 
-## Key Architecture Notes
+**`e2e/playtest-sweep.ts`** — Automated QA tool:
+- Playwright plays N days, captures screenshots + full game state at every transition
+- Outputs to `ai/playtest/manifest.json` + `ai/playtest/report-input.md`
+- Report includes stat trajectories, narrator entries, companion tracking, review rubric
+- **npm scripts:** `npm run playtest` (15 days), `npm run playtest:short` (5 days)
+- Requires dev server running (`npm run dev`)
 
-- **Three-layer rule:** Game Logic → Director → Narrator (strict order)
-- **Import boundaries:** types/ ← systems/ ← store/ ← engine/ ← phaser/ui
-- **Phaser ↔ React:** Zustand store bridges via `subscribe()`. Phaser never uses React hooks.
-- **Mobile layout:** `useIsMobile()` switches between `DesktopLayout` (flexlayout) and `MobileLayout` (fullscreen canvas + modals)
-- **Silhouette sprites:** Dark warm brown fill (#1a1410) + rim edge highlights (#3a2a20/#5a4632). Rim light sprite at 1.06x scale, 0.35 alpha, tinted by `RIM_COLORS[timeOfDay]`.
-- **iOS build:** `npx tauri ios build` with custom cargo build script in project.pbxproj. Version injected as `1.0.<run_number>` before build.
+## Uncommitted Changes
 
-## File Map (Key Files)
+All changes are in the working tree, not yet committed. Files modified:
 
-| Area | File |
-|------|------|
-| App root | `src/App.tsx` |
-| Mobile layout | `src/ui/layout/MobileLayout.tsx`, `MobileHudBar.tsx`, `MobileModal.tsx`, `MobileStatsPanel.tsx`, `MobileDaySheet.tsx` |
-| Desktop layout | `src/ui/layout/DesktopLayout.tsx` |
-| Phaser config | `src/phaser/config.ts`, `src/ui/panels/AnimationPanel.tsx` |
-| Sprite system | `src/phaser/sprites/CharacterSprite.ts`, `src/phaser/sprite-registry.ts` |
-| Animation types | `src/types/animation.ts` (AnimationState, RIM_COLORS, TIME_PALETTES) |
-| Trail scene | `src/phaser/scenes/TrailScene.ts` |
-| Camp scene | `src/phaser/scenes/CampScene.ts` |
-| Sky/terrain | `src/phaser/effects/sky-renderer.ts`, `terrain-layers.ts` |
-| Parallax | `src/phaser/effects/scenery-manager.ts` |
-| Weather | `src/phaser/effects/weather-overlay.ts`, `cloud-layer.ts` |
-| Store | `src/store/index.ts`, `src/store/selectors.ts` |
-| Daily cycle | `src/engine/daily-cycle.ts` |
-| Auto-player | `src/engine/auto-player.ts` |
-| iOS build | `.github/workflows/ios-build.yml` |
-| Silhouette gen | `scripts/generate-silhouettes.py`, `scripts/silhouette-objects.py` |
-| Tests | `e2e/auto-play.spec.ts`, `e2e/phase8-polish.spec.ts`, `e2e/visual-regression.spec.ts` |
+| File | Change |
+|------|--------|
+| `vite.config.ts` | Anthropic dev proxy, XML assembly, error fix |
+| `.env.local` | API key + provider config |
+| `src/engine/daily-cycle.ts` | Resilience fix + travel animation delay |
+| `src/phaser/sprite-registry.ts` | Scale rebalance (cowboy 0.50, companions down) |
+| `public/assets/sprites/horse_riding_base.png` | Frame direction fixes |
+| `public/assets/sprites/horse_draft_base.png` | Frame direction fixes |
+| `e2e/playtest-sweep.ts` | NEW — automated playtest sweep |
+| `package.json` | Added `playtest` and `playtest:short` scripts |
 
-## GitHub Repo
-- Remote: `https://github.com/pmartin1915/frontier.git`
-- iOS build runs on `macos-15` via GitHub Actions
-- 8 secrets configured (cert, key, provisioning profile, API key, team ID)
+## Priority 1: Parallax Background Extension + Slow Pan
+
+**Perry's request for next session:**
+
+The trail scene currently uses procedural terrain layers (`phaser/effects/terrain-layers.ts`) and a `SceneryManager` with Poisson-disk placed scenery objects. Perry wants:
+
+1. **Generate extended background art** using Gemini (or the same tool that made the original backgrounds) — a seamless tileable background that can be tacked onto the existing one
+2. **Implement a slow horizontal pan** during the travel phase to show the horse/cowboy walking with the scenery scrolling left
+3. The current `SceneryManager` already scrolls scenery objects during walk (`sceneryManager.update(delta, isMoving, paceSpeed)`), but the sky/ground textures are static — they need to scroll too
+
+**Key files to understand:**
+- `src/phaser/effects/scenery-manager.ts` — 3-lane parallax, already scrolls during walk
+- `src/phaser/effects/sky-renderer.ts` — Sky gradients + ground texture (currently static)
+- `src/phaser/effects/terrain-layers.ts` — Procedural terrain silhouettes (seeded RNG)
+- `src/phaser/effects/cloud-layer.ts` — Already scrolls during walk
+- `src/phaser/scenes/TrailScene.ts` — Orchestrates all layers
+
+**Approach suggestion:**
+- Generate a wide tileable background strip via Gemini Image Generation (matching the "hi-bit" aesthetic)
+- Use it as a scrolling ground texture in the sky-renderer or as a new parallax layer
+- Apply slow scroll during travel phase (synced with sceneryManager speed)
+- The 3-second travel delay (added this session) gives enough time for visible scrolling
+
+## Priority 2: Remaining Visual Polish (Tier C)
+
+Low-priority cosmetic sprite issues (from Gemini triage):
+- `companion_elias_base`: Stocky proportions vs player
+- `companion_luisa_base`: Object/animal in interact row frames
+- `cat_mouser`: Run row blobs (32px, barely visible)
+- `player_cowboy` walk frames 0-1: Duplicates (subtle stutter, patched)
+- **PixelLab experiment**: API key was returning 401 — try newer humanoid templates when key is refreshed
+
+## Priority 3: Gameplay Features
+
+- Narrator API deployed to Vercel (dev proxy works, production needs deployment)
+- Rate limiting + integrityHash validation (TODO stubs in `api/narrator.ts`)
+- Camp activity system end-to-end verification
+- New content / encounters
+
+## Technical Notes
+
+- **Dev server must be restarted** to pick up `vite.config.ts` changes (plugins don't hot-reload)
+- **Browser hard-refresh** (Ctrl+Shift+R) needed after sprite PNG changes
+- **Shell env** has `ANTHROPIC_API_KEY` set to Claude Code's key — the `.env.local` key is different. `test-narrator` script needs env override: `ANTHROPIC_API_KEY=<perry's key> npm run test:narrator`
+- **Narrator test:** `npm run test:narrator` validates all 3 providers
+- **Playtest sweep:** `npm run playtest:short` for quick 5-day check, requires dev server running
+- **Auto-play test** (29th Playwright) has pre-existing SkyRenderer crash in headless mode — non-blocking
+
+## Environment
+
+- Node 20+, Vite 6.x, TypeScript 5.x strict
+- Dev server: port 3000 (`npm run dev` from `files/frontier-scaffold/frontier/`)
+- Anthropic API budget: ~$1.49 remaining (~180 narrator calls)
+- Gemini API: Free tier (500 calls/day)

@@ -27,6 +27,8 @@
     "test:visual:update": "npx playwright test e2e/visual-regression.spec.ts --update-snapshots",
     "screenshot": "npx tsx src/scripts/screenshot.ts",
     "visual-audit": "npx tsx e2e/visual-audit-sweep.ts",
+    "playtest": "npx tsx e2e/playtest-sweep.ts",
+    "playtest:short": "npx tsx e2e/playtest-sweep.ts --days=5",
     "agent:state": "curl -s http://localhost:3000/api/agent/state | python -m json.tool",
     "agent:summary": "curl -s http://localhost:3000/api/agent/summary"
   },

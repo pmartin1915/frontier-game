@@ -44,6 +44,12 @@ export async function executeDailyCycle(): Promise<void> {
 
     // Layer 1: Game Logic — resolve the day
     store.setState({ dailyCyclePhase: 'travel' });
+
+    // Let the walk animation + parallax play before resolving the day.
+    // Auto-play uses a shorter delay to keep pace.
+    const travelMs = store.getState().autoPlay ? 1500 : 3000;
+    await new Promise((r) => setTimeout(r, travelMs));
+
     const { eventRecord, dayResults, encounter } = resolveDay(state);
 
     if (encounter) {
@@ -120,7 +126,13 @@ export async function runPostEncounterCycle(
     );
 
     // Apply results to store
-    store.getState().applyDayResults(dayResults);
+    // Separate try-catch: rendering listener errors (e.g. SkyRenderer texture
+    // in headless mode) must not prevent narrator response from being stored.
+    try {
+      store.getState().applyDayResults(dayResults);
+    } catch (renderErr) {
+      console.warn('applyDayResults triggered render listener error (non-fatal):', renderErr);
+    }
     store.getState().applyNarratorResponse(narratorResponse);
 
     // Accumulate event record for multi-day ledger generation (keep last 5)
