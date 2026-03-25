@@ -33,9 +33,10 @@ import type {
 import { TRANSPORT_CAPACITY } from '@/types/game-state';
 import type { GameCommand } from '@/types/animation';
 import { AuthorVoice } from '@/types/narrative';
-import type { NarratorResponse, EventRecord } from '@/types/narrative';
+import type { NarratorResponse, EventRecord, LedgerEntry, NarrativeThread } from '@/types/narrative';
 import type { DayResults } from '@/types/game-state';
 import type { Encounter, DevilsBargainEntry } from '@/types/encounters';
+import type { CompanionInstance } from '@/types/companions';
 import { DEFAULT_AUDIO_PREFS } from '@/types/audio';
 import type { AudioPrefs, SfxEvent } from '@/types/audio';
 
@@ -103,7 +104,7 @@ export interface FrontierStore extends GameState {
   /** Command queue: React → Phaser */
   commandQueue: GameCommand[];
   pushCommand: (cmd: GameCommand) => void;
-  clearCommands: () => void;
+  clearCommands: (count?: number) => void;
 
   // --- Actions: Game Flow ---
   /** Initialize a new game with starting state (full reset + names) */
@@ -226,6 +227,59 @@ function loadAudioPrefs(): AudioPrefs {
 }
 
 // ============================================================
+// SHARED INITIAL STATE (used by initializeGame + resetGame)
+// ============================================================
+
+const INITIAL_PARTY = { companions: [] as CompanionInstance[], maxCompanions: 4 };
+const INITIAL_CARRY_CAPACITY = { water: 80, food: 60, transport: 'wagon' as const };
+const INITIAL_CAMP_PET = { adopted: false, name: null, dayAdopted: null, lost: false, dayLost: null };
+const INITIAL_NARRATIVE = {
+  structuredLedger: [] as LedgerEntry[],
+  chapterSummaries: [] as string[],
+  previousEntry: '',
+  activeThreads: [] as NarrativeThread[],
+  currentVoice: AuthorVoice.Adams,
+};
+const INITIAL_JOURNEY = {
+  currentAct: Act.I,
+  waypoint: 'Middle Concho',
+  routeChoices: [] as string[],
+  daysElapsed: 0,
+  failForwardsUsed: 0,
+  fortSumnerDebt: false,
+  nightTravel: false,
+  pace: Pace.Normal,
+  discretionaryAction: DiscretionaryAction.None,
+  encounterHistory: [] as string[],
+  detourMilesRemaining: 0,
+  calmDayStreak: 0,
+};
+
+function createFreshMeta() {
+  return { saveSlot: 0, timestamp: new Date().toISOString(), hash: '', version: 1, playtimeMs: 0 };
+}
+
+const INITIAL_EPHEMERAL = {
+  loading: false,
+  activeEncounterId: null,
+  consecutiveFallbacks: 0,
+  showSaveLoadModal: false,
+  pendingCampIsFullDay: false,
+  gameEndState: null,
+  pendingEncounter: null,
+  pendingBargain: null,
+  pendingEventRecord: null,
+  pendingDayResults: null,
+  recentEventRecords: [] as EventRecord[],
+  commandQueue: [] as GameCommand[],
+  logEntries: [] as LogEntry[],
+} as const;
+
+/** Timer IDs for toast/error auto-clear (prevents overlapping timers). */
+let errorTimerId: ReturnType<typeof setTimeout> | null = null;
+let toastTimerId: ReturnType<typeof setTimeout> | null = null;
+
+// ============================================================
 // STORE CREATION
 // ============================================================
 
@@ -292,104 +346,44 @@ export const useStore = create<FrontierStore>()(
     // --- Phaser Bridge ---
     commandQueue: [],
     pushCommand: (cmd) => set((s) => ({ commandQueue: [...s.commandQueue, cmd] })),
-    clearCommands: () => set({ commandQueue: [] }),
+    clearCommands: (count?: number) => set((s) => ({
+      commandQueue: count !== undefined ? s.commandQueue.slice(count) : [],
+    })),
 
     // --- Game Flow ---
     initializeGame: (playerName, horseName) => set({
       world: INITIAL_WORLD,
       player: { ...INITIAL_PLAYER, name: playerName },
       horse: { ...INITIAL_HORSE, name: horseName },
-      party: { companions: [], maxCompanions: 4 },
+      party: { ...INITIAL_PARTY },
       supplies: INITIAL_SUPPLIES,
-      carryCapacity: { water: 80, food: 60, transport: 'wagon' as const },
-      campPet: { adopted: false, name: null, dayAdopted: null, lost: false, dayLost: null },
-      narrative: {
-        structuredLedger: [],
-        chapterSummaries: [],
-        previousEntry: '',
-        activeThreads: [],
-        currentVoice: AuthorVoice.Adams,
-      },
-      journey: {
-        currentAct: Act.I,
-        waypoint: 'Middle Concho',
-        routeChoices: [],
-        daysElapsed: 0,
-        failForwardsUsed: 0,
-        fortSumnerDebt: false,
-        nightTravel: false,
-        pace: Pace.Normal,
-        discretionaryAction: DiscretionaryAction.None,
-        encounterHistory: [],
-        detourMilesRemaining: 0,
-        calmDayStreak: 0,
-      },
-      meta: { saveSlot: 0, timestamp: new Date().toISOString(), hash: '', version: 1, playtimeMs: 0 },
-      loading: false,
+      carryCapacity: INITIAL_CARRY_CAPACITY,
+      campPet: { ...INITIAL_CAMP_PET },
+      narrative: { ...INITIAL_NARRATIVE, structuredLedger: [], chapterSummaries: [], activeThreads: [] },
+      journey: { ...INITIAL_JOURNEY, routeChoices: [], encounterHistory: [] },
+      meta: createFreshMeta(),
+      ...INITIAL_EPHEMERAL,
       dailyCyclePhase: 'briefing',
-      activeEncounterId: null,
-      consecutiveFallbacks: 0,
-      showSaveLoadModal: false,
-      pendingCampIsFullDay: false,
-      gameEndState: null,
       gameInitialized: true,
-      pendingEncounter: null,
-      pendingBargain: null,
-      pendingEventRecord: null,
-      pendingDayResults: null,
-      recentEventRecords: [],
-      commandQueue: [],
-      logEntries: [],
     }),
 
     resetGame: () => set({
       world: INITIAL_WORLD,
       player: INITIAL_PLAYER,
       horse: INITIAL_HORSE,
-      party: { companions: [], maxCompanions: 4 },
+      party: { ...INITIAL_PARTY },
       supplies: INITIAL_SUPPLIES,
-      carryCapacity: { water: 80, food: 60, transport: 'wagon' as const },
-      campPet: { adopted: false, name: null, dayAdopted: null, lost: false, dayLost: null },
-      narrative: {
-        structuredLedger: [],
-        chapterSummaries: [],
-        previousEntry: '',
-        activeThreads: [],
-        currentVoice: AuthorVoice.Adams,
-      },
-      journey: {
-        currentAct: Act.I,
-        waypoint: 'Middle Concho',
-        routeChoices: [],
-        daysElapsed: 0,
-        failForwardsUsed: 0,
-        fortSumnerDebt: false,
-        nightTravel: false,
-        pace: Pace.Normal,
-        discretionaryAction: DiscretionaryAction.None,
-        encounterHistory: [],
-        detourMilesRemaining: 0,
-        calmDayStreak: 0,
-      },
-      meta: { saveSlot: 0, timestamp: new Date().toISOString(), hash: '', version: 1, playtimeMs: 0 },
-      loading: false,
+      carryCapacity: INITIAL_CARRY_CAPACITY,
+      campPet: { ...INITIAL_CAMP_PET },
+      narrative: { ...INITIAL_NARRATIVE, structuredLedger: [], chapterSummaries: [], activeThreads: [] },
+      journey: { ...INITIAL_JOURNEY, routeChoices: [], encounterHistory: [] },
+      meta: createFreshMeta(),
+      ...INITIAL_EPHEMERAL,
       dailyCyclePhase: 'idle',
-      activeEncounterId: null,
-      consecutiveFallbacks: 0,
-      showSaveLoadModal: false,
-      pendingCampIsFullDay: false,
-      gameEndState: null,
       gameInitialized: false,
       autoPlay: false,
       // Preserve user audio preferences across game resets.
       audioPrefs: get().audioPrefs,
-      pendingEncounter: null,
-      pendingBargain: null,
-      pendingEventRecord: null,
-      pendingDayResults: null,
-      recentEventRecords: [],
-      commandQueue: [],
-      logEntries: [],
     }),
 
     triggerGameEnd: (reason) => set((s) => ({
@@ -426,10 +420,9 @@ export const useStore = create<FrontierStore>()(
     // --- Encounter/Bargain Resolution ---
     resolveEncounterChoice: async (choiceId: string) => {
       try {
+        const { resolveEncounter, resolveDelta } = await import('@/systems/encounters');
         const s = get();
         if (!s.pendingEncounter || !s.pendingEventRecord || !s.pendingDayResults) return;
-
-        const { resolveEncounter, resolveDelta } = await import('@/systems/encounters');
         const result = resolveEncounter({
           encounter: s.pendingEncounter,
           choiceId,
@@ -524,8 +517,8 @@ export const useStore = create<FrontierStore>()(
           }
         }
 
-        // Track encounter in history for maxOccurrences filtering
-        const encounterHistory = [...(s.journey.encounterHistory ?? []), result.encounter.id];
+        // Track encounter in history for maxOccurrences filtering (cap at 50)
+        const encounterHistory = [...(s.journey.encounterHistory ?? []), result.encounter.id].slice(-50);
         updatedDayResults = {
           ...updatedDayResults,
           journey: { ...updatedDayResults.journey, encounterHistory },
@@ -570,10 +563,9 @@ export const useStore = create<FrontierStore>()(
 
     resolveBargainChoice: async (accepted: boolean) => {
       try {
+        const { applyBargainEffects } = await import('@/systems/fail-forward');
         const s = get();
         if (!s.pendingBargain || !s.pendingEventRecord || !s.pendingDayResults) return;
-
-        const { applyBargainEffects } = await import('@/systems/fail-forward');
         const result = applyBargainEffects({
           bargain: s.pendingBargain,
           state: s as GameState,
@@ -651,11 +643,10 @@ export const useStore = create<FrontierStore>()(
 
     resolveCampActivities: async (activities) => {
       try {
-        const s = get();
-        if (!s.pendingEventRecord || !s.pendingDayResults) return;
-
         const { resolveCamp } = await import('@/systems/camp');
         const { NarrativeEventType } = await import('@/types/narrative');
+        const s = get();
+        if (!s.pendingEventRecord || !s.pendingDayResults) return;
 
         const campResults = resolveCamp({
           activities,
@@ -856,13 +847,15 @@ export const useStore = create<FrontierStore>()(
     setAutoPlay: (on) => set({ autoPlay: on }),
 
     setError: (message) => {
+      if (errorTimerId) clearTimeout(errorTimerId);
       set({ errorMessage: message });
-      setTimeout(() => set({ errorMessage: null }), 5000);
+      errorTimerId = setTimeout(() => { set({ errorMessage: null }); errorTimerId = null; }, 5000);
     },
 
     setToast: (text, type) => {
+      if (toastTimerId) clearTimeout(toastTimerId);
       set({ toastMessage: { text, type } });
-      setTimeout(() => set({ toastMessage: null }), 4000);
+      toastTimerId = setTimeout(() => { set({ toastMessage: null }); toastTimerId = null; }, 4000);
     },
 
     setAudioPref: (key, value) => {

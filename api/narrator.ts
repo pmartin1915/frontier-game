@@ -13,17 +13,55 @@
  * - User turn structured as XML to force style rendering, not input copying.
  * - Model updated to claude-sonnet-4-6.
  *
- * NOTE: Rate limiting + session validation require Vercel KV (stub TODO).
+ * Rate limiting: In-memory IP-based (resets on cold start; upgrade to Vercel KV for persistence).
+ * Integrity hash: Format validation (SHA-256 hex). Full session registry deferred to Vercel KV.
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-// Rate limit tiers per GDD §9.4
-const _RATE_LIMITS = {
-  normal: { requests: 10, windowSeconds: 60 },
-  burst: { requests: 20, windowSeconds: 60, softLockMinutes: 5 },
-  sustained: { requests: 100, windowSeconds: 3600, blockHours: 24 },
-} as const;
+// ============================================================
+// RATE LIMITING (in-memory, per Vercel instance)
+// ============================================================
+
+const RATE_LIMIT = { maxRequests: 10, windowMs: 60_000 } as const;
+
+interface RateLimitEntry {
+  count: number;
+  windowStart: number;
+}
+
+/** IP → request count within current window. Resets on cold start. */
+const rateLimitMap = new Map<string, RateLimitEntry>();
+
+/** Server-side fetch timeout for LLM provider calls. */
+const SERVER_TIMEOUT_MS = 8_000;
+
+/** SHA-256 hex digest pattern (64 hex chars). */
+const INTEGRITY_HASH_RE = /^[0-9a-f]{64}$/i;
+
+/**
+ * Check IP rate limit. Returns true if the request should be allowed.
+ * Cleans up stale entries periodically to prevent memory growth.
+ */
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+
+  if (!entry || now - entry.windowStart > RATE_LIMIT.windowMs) {
+    // New window
+    rateLimitMap.set(ip, { count: 1, windowStart: now });
+    // Periodic cleanup: if map grows large, purge expired entries
+    if (rateLimitMap.size > 1000) {
+      for (const [key, val] of rateLimitMap) {
+        if (now - val.windowStart > RATE_LIMIT.windowMs) rateLimitMap.delete(key);
+      }
+    }
+    return true;
+  }
+
+  entry.count++;
+  return entry.count <= RATE_LIMIT.maxRequests;
+}
 
 // ============================================================
 // PROVIDER CONFIGURATION
@@ -128,6 +166,7 @@ async function callAnthropic(prompt: any): Promise<AnthropicResponse> {
 
   const response = await fetch(ANTHROPIC_API_URL, {
     method: 'POST',
+    signal: AbortSignal.timeout(SERVER_TIMEOUT_MS),
     headers: {
       'Content-Type': 'application/json',
       'x-api-key': process.env.ANTHROPIC_API_KEY || '',
@@ -154,8 +193,7 @@ async function callAnthropic(prompt: any): Promise<AnthropicResponse> {
   });
 
   if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Anthropic API error (${response.status}): ${error}`);
+    throw new Error(`Anthropic API error (${response.status})`);
   }
 
   return response.json();
@@ -168,6 +206,7 @@ async function callAnthropic(prompt: any): Promise<AnthropicResponse> {
 async function callMoonshot(prompt: any): Promise<AnthropicResponse> {
   const response = await fetch(MOONSHOT_API_URL, {
     method: 'POST',
+    signal: AbortSignal.timeout(SERVER_TIMEOUT_MS),
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${process.env.MOONSHOT_API_KEY || ''}`,
@@ -183,8 +222,7 @@ async function callMoonshot(prompt: any): Promise<AnthropicResponse> {
   });
 
   if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Moonshot API error (${response.status}): ${error}`);
+    throw new Error(`Moonshot API error (${response.status})`);
   }
 
   const data = await response.json();
@@ -207,10 +245,13 @@ async function callMoonshot(prompt: any): Promise<AnthropicResponse> {
  * Uses the REST generateContent endpoint with an API key (no OAuth needed).
  */
 async function callGemini(prompt: any): Promise<AnthropicResponse> {
-  const apiKey = process.env.GEMINI_API_KEY || '';
-  const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
+  const response = await fetch(GEMINI_API_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    signal: AbortSignal.timeout(SERVER_TIMEOUT_MS),
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': process.env.GEMINI_API_KEY || '',
+    },
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: prompt.systemMessage }] },
       contents: [{ role: 'user', parts: [{ text: assembleXMLUserContent(prompt) }] }],
@@ -219,8 +260,7 @@ async function callGemini(prompt: any): Promise<AnthropicResponse> {
   });
 
   if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Gemini API error (${response.status}): ${error}`);
+    throw new Error(`Gemini API error (${response.status})`);
   }
 
   const data = await response.json();
@@ -246,11 +286,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // CORS enforcement
+  // CORS enforcement — require origin header, supports comma-separated origins
   const origin = req.headers.origin;
-  const allowedDomain = process.env.VITE_APP_DOMAIN || 'http://localhost:3000';
-  if (origin && origin !== allowedDomain) {
+  const allowedOrigins = (process.env.VITE_APP_DOMAIN || 'http://localhost:3000')
+    .split(',')
+    .map(s => s.trim());
+  if (!origin || !allowedOrigins.includes(origin)) {
     return res.status(403).json({ error: 'Origin not allowed' });
+  }
+
+  // IP-based rate limiting (in-memory, per Vercel instance)
+  const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
+    || req.socket?.remoteAddress
+    || 'unknown';
+  if (!checkRateLimit(clientIp)) {
+    return res.status(429).json({ error: 'Rate limit exceeded. Try again later.' });
   }
 
   // Extract fields from request
@@ -259,9 +309,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'Missing integrityHash or prompt' });
   }
 
-  // TODO: Validate integrityHash against session registry (Vercel KV)
-  // TODO: Check IP rate limits (Vercel KV)
-  // TODO: Validate state delta plausibility
+  // Validate integrityHash format (SHA-256 = 64 hex chars)
+  if (typeof integrityHash !== 'string' || !INTEGRITY_HASH_RE.test(integrityHash)) {
+    return res.status(400).json({ error: 'Invalid integrityHash format' });
+  }
+
+  // TODO: Validate integrityHash against session registry (Vercel KV — deferred)
 
   // Determine provider (default to moonshot for cost savings)
   const provider: NarratorProvider =
@@ -275,9 +328,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       : provider === 'gemini' ? await callGemini(prompt)
       : await callMoonshot(prompt);
 
+    // Set CORS headers on success
+    res.setHeader('Access-Control-Allow-Origin', origin);
     return res.status(200).json(data);
-  } catch (err) {
-    console.error(`Narrator proxy error (${provider}):`, err);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    console.error(`Narrator proxy error (${provider}): ${message}`);
     return res.status(502).json({ error: 'Narrator API error' });
   }
 }

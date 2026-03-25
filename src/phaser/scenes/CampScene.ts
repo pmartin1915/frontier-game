@@ -110,7 +110,7 @@ export class CampScene extends Phaser.Scene {
       for (const cmd of commands) {
         this.processCommand(cmd);
       }
-      store.getState().clearCommands();
+      store.getState().clearCommands(commands.length);
     }
   }
 

@@ -186,7 +186,7 @@ export class TrailScene extends Phaser.Scene {
       for (const cmd of commands) {
         this.processCommand(cmd);
       }
-      store.getState().clearCommands();
+      store.getState().clearCommands(commands.length);
     }
 
     // Parallax scenery scroll — check if any visible sprite is walking/running
