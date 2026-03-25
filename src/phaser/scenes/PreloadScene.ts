@@ -50,6 +50,16 @@ export class PreloadScene extends Phaser.Scene {
       assetsQueued++;
     }
 
+    // Load tileable ground textures (GroundScroll falls back to procedural if missing)
+    const GROUND_BIOMES = [
+      'crossTimbers', 'stakedPlains', 'desertApproach',
+      'pecosValley', 'highDesert', 'mountainPass', 'coloradoPlains',
+    ];
+    for (const biome of GROUND_BIOMES) {
+      this.load.image(`ground_${biome}`, `assets/backgrounds/ground_${biome}.png`);
+      assetsQueued++;
+    }
+
     // If no assets queued, we'll go straight to create
     if (assetsQueued === 0) {
       this.load.on('complete', () => this.onLoadComplete());

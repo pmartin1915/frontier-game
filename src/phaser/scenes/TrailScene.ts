@@ -39,6 +39,7 @@ import type { CompanionId } from '@/types/companions';
 import { SceneryManager } from '@/phaser/effects/scenery-manager';
 import { WeatherOverlay } from '@/phaser/effects/weather-overlay';
 import { CloudLayer } from '@/phaser/effects/cloud-layer';
+import { GroundScroll } from '@/phaser/effects/ground-scroll';
 import { MAP_OBJECTS } from '@/types/map-objects';
 
 // ============================================================
@@ -83,6 +84,9 @@ export class TrailScene extends Phaser.Scene {
   private weatherOverlay!: WeatherOverlay;
   private cloudLayer!: CloudLayer;
 
+  // Scrolling ground texture
+  private groundScroll!: GroundScroll;
+
   // Degradation visuals
   private degradationVisuals!: DegradationVisuals;
   private currentAmbientTint = 0xffffff;
@@ -116,6 +120,10 @@ export class TrailScene extends Phaser.Scene {
     // Depth-layered parallax scenery (behind characters)
     this.sceneryManager = new SceneryManager(this);
     this.sceneryManager.create(groundY);
+
+    // Tileable scrolling ground texture (on top of gradient, behind scenery)
+    this.groundScroll = new GroundScroll(this);
+    this.groundScroll.create(groundY);
 
     // Create character sprites
     this.createPartySprites(groundY);
@@ -151,6 +159,8 @@ export class TrailScene extends Phaser.Scene {
     this.terrainLayers.setTimeOfDay(state.world.timeOfDay);
     this.applyPace(state.journey.pace);
     this.sceneryManager.setBiome(state.world.biome);
+    this.groundScroll.setBiome(state.world.biome);
+    this.groundScroll.setTimeOfDay(state.world.timeOfDay);
     this.applyEquipmentDegradation(state.player.equipment);
     this.particles.setBiome(state.world.biome);
     this.particles.setWeather(state.world.weather);
@@ -191,6 +201,7 @@ export class TrailScene extends Phaser.Scene {
     }
     const paceSpeed = PACE_FRAME_RATE_MULTIPLIER[store.getState().journey.pace] ?? 1.0;
     this.sceneryManager.update(delta, isMoving, paceSpeed);
+    this.groundScroll.update(delta, isMoving, paceSpeed);
     this.cloudLayer.update(delta, isMoving, paceSpeed);
   }
 
@@ -204,6 +215,7 @@ export class TrailScene extends Phaser.Scene {
     this.terrainLayers?.destroy();
     this.cloudLayer?.destroy();
     this.sceneryManager?.destroy();
+    this.groundScroll?.destroy();
     this.weatherOverlay?.destroy();
     this.degradationVisuals?.destroy();
     this.particles?.destroy();
@@ -329,6 +341,7 @@ export class TrailScene extends Phaser.Scene {
         (biome) => {
           this.applyBiome(biome);
           this.sceneryManager.setBiome(biome);
+          this.groundScroll.setBiome(biome);
           this.terrainLayers.setBiome(biome);
           this.particles.setBiome(biome);
           this.weatherOverlay.setBiome(biome);
@@ -343,6 +356,7 @@ export class TrailScene extends Phaser.Scene {
         (timeOfDay) => {
           this.applyTimeOfDay(timeOfDay);
           this.terrainLayers.setTimeOfDay(timeOfDay);
+          this.groundScroll.setTimeOfDay(timeOfDay);
           this.particles.setTimeOfDay(timeOfDay);
           this.weatherOverlay.setTimeOfDay(timeOfDay);
           this.cloudLayer.setTimeOfDay(timeOfDay);
@@ -526,6 +540,16 @@ export class TrailScene extends Phaser.Scene {
         sprite.clearTint();
       } else {
         sprite.setTint(composed);
+      }
+    }
+
+    // Tint ground scroll with ambient color
+    const groundTile = this.groundScroll.tileSprite;
+    if (groundTile) {
+      if (this.currentAmbientTint === 0xffffff) {
+        groundTile.clearTint();
+      } else {
+        groundTile.setTint(this.currentAmbientTint);
       }
     }
 
