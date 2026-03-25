@@ -20,8 +20,8 @@ import { TimeOfDay } from '@/types/game-state';
 // ============================================================
 
 const GROUND_SCROLL_DEPTH = 0.85;
-const GROUND_SCROLL_ALPHA = 0.4;
-const GROUND_SCROLL_SPEED = 0.08;
+const GROUND_SCROLL_ALPHA = 0.55;
+const GROUND_SCROLL_SPEED = 0.25;
 const NIGHT_ALPHA_FACTOR = 0.5;
 
 /** Texture dimensions for procedural fallback (POT for WebGL). */
@@ -172,14 +172,15 @@ export class GroundScroll {
     const colors = BIOME_GROUND_COLORS[biome] ?? BIOME_GROUND_COLORS.stakedPlains;
     const rng = this.makeRng(this.hashString(biome));
 
-    // Fill with base color at partial opacity
-    ctx.globalAlpha = 0.6;
+    // Fill with base color
+    ctx.globalAlpha = 0.8;
     ctx.fillStyle = colors.base;
     ctx.fillRect(0, 0, TEX_WIDTH, TEX_HEIGHT);
 
     // Vertical alpha gradient: more transparent at top, more opaque at bottom
     const gradient = ctx.createLinearGradient(0, 0, 0, TEX_HEIGHT);
-    gradient.addColorStop(0, 'rgba(0, 0, 0, 0.4)');
+    gradient.addColorStop(0, 'rgba(0, 0, 0, 0.5)');
+    gradient.addColorStop(0.3, 'rgba(0, 0, 0, 0.15)');
     gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
     ctx.globalCompositeOperation = 'destination-out';
     ctx.fillStyle = gradient;
@@ -190,9 +191,9 @@ export class GroundScroll {
     // Trail ruts (horizontal dashed lines)
     if (colors.ruts) {
       ctx.strokeStyle = colors.detail;
-      ctx.globalAlpha = 0.25;
-      ctx.lineWidth = 1;
-      ctx.setLineDash([8, 12]);
+      ctx.globalAlpha = 0.4;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([12, 8]);
 
       const rutY1 = TEX_HEIGHT * 0.4;
       const rutY2 = TEX_HEIGHT * 0.6;
@@ -206,8 +207,8 @@ export class GroundScroll {
     }
 
     // Grass tufts / vegetation dots
-    ctx.globalAlpha = 0.35;
-    const grassCount = Math.floor(colors.grassDensity * 60);
+    ctx.globalAlpha = 0.5;
+    const grassCount = Math.floor(colors.grassDensity * 80);
     for (let i = 0; i < grassCount; i++) {
       const gx = rng() * TEX_WIDTH;
       const gy = TEX_HEIGHT * 0.2 + rng() * TEX_HEIGHT * 0.7;
@@ -224,8 +225,8 @@ export class GroundScroll {
     }
 
     // Pebbles / stones (sparse, all biomes)
-    ctx.globalAlpha = 0.2;
-    const stoneCount = 8 + Math.floor(rng() * 10);
+    ctx.globalAlpha = 0.35;
+    const stoneCount = 12 + Math.floor(rng() * 12);
     for (let i = 0; i < stoneCount; i++) {
       const sx = rng() * TEX_WIDTH;
       const sy = TEX_HEIGHT * 0.3 + rng() * TEX_HEIGHT * 0.6;

@@ -138,7 +138,7 @@ describe('GroundScroll', () => {
 
     it('sets correct alpha', () => {
       groundScroll.setBiome('crossTimbers');
-      expect(mockScene.mockTileSprite.setAlpha).toHaveBeenCalledWith(0.4);
+      expect(mockScene.mockTileSprite.setAlpha).toHaveBeenCalledWith(0.55);
     });
   });
 
@@ -184,7 +184,7 @@ describe('GroundScroll', () => {
 
     it('reduces alpha at night', () => {
       groundScroll.setTimeOfDay(TimeOfDay.Night);
-      expect(mockScene.mockTileSprite.setAlpha).toHaveBeenCalledWith(0.2);
+      expect(mockScene.mockTileSprite.setAlpha).toHaveBeenCalledWith(0.275);
     });
 
     it('restores normal alpha when switching from night to day', () => {
@@ -192,7 +192,7 @@ describe('GroundScroll', () => {
       groundScroll.setTimeOfDay(TimeOfDay.Morning);
       const calls = mockScene.mockTileSprite.setAlpha.mock.calls;
       const lastCall = calls[calls.length - 1];
-      expect(lastCall[0]).toBe(0.4);
+      expect(lastCall[0]).toBe(0.55);
     });
 
     it('does not update on same time of day', () => {
