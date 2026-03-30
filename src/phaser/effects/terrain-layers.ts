@@ -67,12 +67,14 @@ interface LayerDef {
   darken: number;
   /** Vertical scale — how tall the silhouette reaches above horizon (fraction of sky height) */
   heightFrac: number;
+  /** Parallax scroll speed (px per frame at pace 1.0). Slower = more distant. */
+  parallaxSpeed: number;
 }
 
 const LAYER_DEFS: LayerDef[] = [
-  { depth: 0.3, alpha: 0.50, darken: 0.55, heightFrac: 0.55 }, // Far — tallest, most atmospheric
-  { depth: 0.5, alpha: 0.65, darken: 0.42, heightFrac: 0.32 }, // Mid
-  { depth: 0.7, alpha: 0.80, darken: 0.28, heightFrac: 0.16 }, // Near — darkest, shortest
+  { depth: 0.3, alpha: 0.50, darken: 0.55, heightFrac: 0.55, parallaxSpeed: 0.06 }, // Far
+  { depth: 0.5, alpha: 0.65, darken: 0.42, heightFrac: 0.32, parallaxSpeed: 0.15 }, // Mid
+  { depth: 0.7, alpha: 0.80, darken: 0.28, heightFrac: 0.16, parallaxSpeed: 0.35 }, // Near
 ];
 
 // ============================================================
@@ -86,6 +88,8 @@ export class TerrainLayers {
   private currentTimeOfDay = TimeOfDay.Morning;
   private sceneWidth = 0;
   private skyHeight = 0;
+  /** Per-layer scroll offset (pixels shifted left). */
+  private scrollOffsets: number[] = [0, 0, 0];
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -94,20 +98,20 @@ export class TerrainLayers {
   /**
    * Create the 3 terrain silhouette layers.
    * Call once in scene.create(), after SkyRenderer.create().
+   * Textures are 2x viewport width for seamless scroll wrapping.
    */
   create(groundY: number): void {
     const { width } = this.scene.cameras.main;
     this.sceneWidth = width;
     this.skyHeight = groundY;
 
-    // Create 3 empty sprite slots
+    // Create 3 empty sprite slots — textures are 2x viewport for scroll wrap
     for (let i = 0; i < LAYER_DEFS.length; i++) {
       const def = LAYER_DEFS[i];
       const key = `terrain_layer_${i}`;
-      // Create a 1x1 placeholder texture
-      this.createLayerTexture(key, width, groundY, i, 'rolling_hills');
-      const sprite = this.scene.add.sprite(width / 2, groundY / 2, key);
-      sprite.setOrigin(0.5, 0.5); // Explicit: texture is groundY tall, centered
+      this.createLayerTexture(key, width * 2, groundY, i, 'rolling_hills');
+      const sprite = this.scene.add.sprite(width, groundY / 2, key);
+      sprite.setOrigin(0.5, 0.5);
       sprite.setDepth(def.depth);
       sprite.setAlpha(def.alpha);
       sprite.setVisible(false);
@@ -115,16 +119,43 @@ export class TerrainLayers {
     }
   }
 
+  /**
+   * Scroll terrain layers during travel.
+   * Call from TrailScene.update() alongside sceneryManager/groundScroll.
+   */
+  update(delta: number, isMoving: boolean, paceSpeed: number): void {
+    if (!isMoving) return;
+
+    const dt = delta / 16.667; // normalize to 60fps
+    for (let i = 0; i < LAYER_DEFS.length; i++) {
+      const def = LAYER_DEFS[i];
+      const sprite = this.sprites[i];
+      if (!sprite?.visible) continue;
+
+      this.scrollOffsets[i] += def.parallaxSpeed * paceSpeed * dt;
+
+      // Wrap when scrolled by one viewport width
+      if (this.scrollOffsets[i] >= this.sceneWidth) {
+        this.scrollOffsets[i] -= this.sceneWidth;
+      }
+
+      // Shift sprite left by offset (sprite is 2x wide, origin 0.5)
+      sprite.x = this.sceneWidth - this.scrollOffsets[i];
+    }
+  }
+
   setBiome(biome: string): void {
     if (biome === this.currentBiome) return;
     this.currentBiome = biome;
-    this.redrawAll();
+    this.redrawGeometry();
+    this.applyTint();
   }
 
   setTimeOfDay(timeOfDay: TimeOfDay): void {
     if (timeOfDay === this.currentTimeOfDay) return;
     this.currentTimeOfDay = timeOfDay;
-    this.redrawAll();
+    // Tint only — no canvas regeneration needed for time-of-day changes.
+    this.applyTint();
   }
 
   destroy(): void {
@@ -142,17 +173,29 @@ export class TerrainLayers {
   // RENDERING
   // ============================================================
 
-  private redrawAll(): void {
+  /** Regenerate canvas geometry (biome change only). Resets scroll offsets. */
+  private redrawGeometry(): void {
     const profile = BIOME_TERRAIN_PROFILE[this.currentBiome] ?? 'rolling_hills';
 
     for (let i = 0; i < LAYER_DEFS.length; i++) {
       const key = `terrain_layer_${i}`;
-      this.createLayerTexture(key, this.sceneWidth, this.skyHeight, i, profile);
+      this.createLayerTexture(key, this.sceneWidth * 2, this.skyHeight, i, profile);
       const sprite = this.sprites[i];
       if (sprite) {
         sprite.setTexture(key);
         sprite.setVisible(true);
       }
+      this.scrollOffsets[i] = 0;
+    }
+  }
+
+  /** Apply per-layer tint color based on TOD + darken. No canvas regen. */
+  private applyTint(): void {
+    for (let i = 0; i < LAYER_DEFS.length; i++) {
+      const sprite = this.sprites[i];
+      if (!sprite) continue;
+      const tintColor = this.computeLayerColorNum(LAYER_DEFS[i].darken);
+      sprite.setTint(tintColor);
     }
   }
 
@@ -174,31 +217,37 @@ export class TerrainLayers {
     ctx.clearRect(0, 0, w, h);
 
     const layerDef = LAYER_DEFS[layerIndex];
-    const color = this.computeLayerColor(layerDef.darken);
 
-    // Generate terrain polygon points
+    // Generate terrain polygon for one viewport width, then draw it twice
+    // side-by-side on the 2x canvas so scrolling wraps seamlessly.
+    // Geometry is drawn in white; TOD color is applied via sprite.setTint().
     const seed = this.hashBiome(this.currentBiome) + layerIndex * 1000;
+    const halfW = w / 2;
     const maxHeight = h * layerDef.heightFrac;
-    const points = this.generateProfile(profile, w, maxHeight, seed, layerIndex);
+    const points = this.generateProfile(profile, halfW, maxHeight, seed, layerIndex);
 
-    // Draw filled polygon from bottom of canvas up to terrain profile
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.moveTo(0, h); // bottom-left
-    for (const [px, py] of points) {
-      ctx.lineTo(px, h - py); // py is height above bottom
+    ctx.fillStyle = '#ffffff';
+
+    // Draw the same profile twice: once at x=0, once shifted by halfW
+    for (const offset of [0, halfW]) {
+      ctx.beginPath();
+      ctx.moveTo(offset, h); // bottom-left of this half
+      for (const [px, py] of points) {
+        ctx.lineTo(offset + px, h - py);
+      }
+      ctx.lineTo(offset + halfW, h); // bottom-right of this half
+      ctx.closePath();
+      ctx.fill();
     }
-    ctx.lineTo(w, h); // bottom-right
-    ctx.closePath();
-    ctx.fill();
 
     canvas.refresh();
   }
 
   /**
-   * Compute silhouette color: sky bottom color darkened + time-of-day tint.
+   * Compute silhouette color as a 0xRRGGBB number for sprite.setTint().
+   * Sky bottom color darkened + time-of-day atmospheric tint.
    */
-  private computeLayerColor(darken: number): string {
+  private computeLayerColorNum(darken: number): number {
     const skyBottom = SKY_BOTTOM_COLORS[this.currentTimeOfDay] ?? '#888888';
     const tint = TIME_TINTS[this.currentTimeOfDay];
 
@@ -223,7 +272,7 @@ export class TerrainLayers {
     g = Math.min(255, Math.max(0, g));
     b = Math.min(255, Math.max(0, b));
 
-    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+    return (r << 16) | (g << 8) | b;
   }
 
   // ============================================================
@@ -237,13 +286,41 @@ export class TerrainLayers {
     seed: number,
     layerIndex: number,
   ): [number, number][] {
+    let points: [number, number][];
     switch (profile) {
-      case 'mesa':          return this.genMesa(width, maxHeight, seed, layerIndex);
-      case 'mountains':     return this.genMountains(width, maxHeight, seed, layerIndex);
-      case 'rolling_hills': return this.genRollingHills(width, maxHeight, seed, layerIndex);
-      case 'flat_plains':   return this.genFlatPlains(width, maxHeight, seed, layerIndex);
-      case 'canyon_walls':  return this.genCanyonWalls(width, maxHeight, seed, layerIndex);
+      case 'mesa':          points = this.genMesa(width, maxHeight, seed, layerIndex); break;
+      case 'mountains':     points = this.genMountains(width, maxHeight, seed, layerIndex); break;
+      case 'rolling_hills': points = this.genRollingHills(width, maxHeight, seed, layerIndex); break;
+      case 'flat_plains':   points = this.genFlatPlains(width, maxHeight, seed, layerIndex); break;
+      case 'canyon_walls':  points = this.genCanyonWalls(width, maxHeight, seed, layerIndex); break;
     }
+    return this.makeSeamless(points, width);
+  }
+
+  /**
+   * Blend the last ~15% of the profile back toward the starting height
+   * so that tiling two copies side-by-side creates a smooth transition.
+   */
+  private makeSeamless(points: [number, number][], width: number): [number, number][] {
+    if (points.length < 3) return points;
+
+    const startHeight = points[0][1];
+    const fadeStart = width * 0.85;
+
+    for (let i = 0; i < points.length; i++) {
+      const [px, py] = points[i];
+      if (px >= fadeStart) {
+        const t = (px - fadeStart) / (width - fadeStart); // 0 at fadeStart → 1 at width
+        const eased = t * t * (3 - 2 * t); // smoothstep for natural blend
+        points[i] = [px, py * (1 - eased) + startHeight * eased];
+      }
+    }
+
+    // Ensure the last point exactly matches the first height
+    const last = points[points.length - 1];
+    points[points.length - 1] = [last[0], startHeight];
+
+    return points;
   }
 
   /** Mesa: flat-topped blocky formations with steep sides. */
@@ -421,12 +498,12 @@ export class TerrainLayers {
     return hash & 0x7fffffff;
   }
 
-  /** Create a seeded PRNG (LCG). */
+  /** Create a seeded PRNG (LCG). Uses full 31-bit range for better distribution. */
   private makeRng(seed: number): () => number {
     let state = seed;
     return () => {
       state = (state * 16807 + 1) & 0x7fffffff;
-      return (state & 0xffff) / 0xffff;
+      return state / 0x7fffffff;
     };
   }
 }

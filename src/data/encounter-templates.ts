@@ -1463,6 +1463,376 @@ export const ENCOUNTER_TEMPLATES: EncounterTemplate[] = [
       },
     ],
   },
+
+  // ---- PARTY: ELIAS'S PAST ----
+  {
+    id: 'party_elias_confession',
+    type: EncounterType.Party,
+    name: 'Elias\'s Confession',
+    description: 'Elias sits apart from the fire, turning his kepi in his hands. When he speaks, the words come slow and heavy. He tells you he deserted his regiment at Shiloh — walked out of the line and never went back.',
+    trigger: { type: 'morale', condition: 'companion trust moment' },
+    biomes: [],
+    acts: [Act.II, Act.III, Act.IV, Act.V],
+    minDay: 8,
+    maxOccurrences: 1,
+    baseProbability: 0.08,
+    choices: [
+      {
+        id: 'listen_sympathize',
+        label: 'Listen sympathetically',
+        description: 'A man carries what he carries. You are not his judge.',
+        requirements: [],
+        available: true,
+      },
+      {
+        id: 'question_honor',
+        label: 'Question his honor',
+        description: 'A deserter is a deserter. The dead at Shiloh cannot speak for themselves.',
+        requirements: [],
+        available: true,
+      },
+      {
+        id: 'share_past',
+        label: 'Share your own past',
+        description: 'Everyone who survived the war left something behind. Tell him what you left.',
+        requirements: [{ type: 'morale', key: 'player', minValue: 30 }],
+        available: true,
+      },
+    ],
+  },
+
+  // ---- PARTY: LUISA'S DILEMMA ----
+  {
+    id: 'party_luisa_family',
+    type: EncounterType.Party,
+    name: 'Luisa\'s Dilemma',
+    description: 'A rider heading south brought word — Luisa\'s mother is ill in Santa Fe. Luisa stands by the fire, her jaw set, looking south toward a place you are not going. She has not asked to leave. Not yet.',
+    trigger: { type: 'morale', condition: 'companion family crisis' },
+    biomes: [],
+    acts: [Act.III, Act.IV, Act.V],
+    minDay: 15,
+    maxOccurrences: 1,
+    baseProbability: 0.08,
+    choices: [
+      {
+        id: 'encourage_go',
+        label: 'Encourage her to go',
+        description: 'Family is family. You will manage without her.',
+        requirements: [],
+        available: true,
+      },
+      {
+        id: 'convince_stay',
+        label: 'Convince her to stay',
+        description: 'The trail needs her. Her mother would understand.',
+        requirements: [],
+        available: true,
+      },
+      {
+        id: 'offer_detour',
+        label: 'Offer to detour through Santa Fe',
+        description: 'Ride south together. It will cost days, but nobody rides alone in this country.',
+        requirements: [],
+        available: true,
+      },
+    ],
+  },
+
+  // ---- PARTY: TOM'S TEST ----
+  {
+    id: 'party_tom_courage',
+    type: EncounterType.Party,
+    name: 'Tom\'s Test',
+    description: 'A diamondback rattler coils on the trail, buzzing hard. Tom\'s horse shies and he goes white. His hand shakes on the reins. The boy cannot move.',
+    trigger: { type: 'distance', condition: 'companion fear test' },
+    biomes: [],
+    acts: [Act.II, Act.III, Act.IV, Act.V],
+    minDay: 10,
+    maxOccurrences: 1,
+    baseProbability: 0.08,
+    choices: [
+      {
+        id: 'handle_yourself',
+        label: 'Handle it yourself',
+        description: 'Dismount, draw your knife, deal with the snake. Show the boy how it is done.',
+        requirements: [],
+        available: true,
+      },
+      {
+        id: 'push_tom',
+        label: 'Push Tom to face it',
+        description: 'Tell him to get down and kill it. He will not learn any younger.',
+        requirements: [],
+        available: true,
+      },
+      {
+        id: 'laugh_off',
+        label: 'Laugh it off',
+        description: 'Tell him it is just a snake and ride around it. Let the moment pass.',
+        requirements: [],
+        available: true,
+      },
+    ],
+  },
+
+  // ---- HOSTILE: HORSE THEFT ATTEMPT ----
+  {
+    id: 'hostile_horse_theft',
+    type: EncounterType.Hostile,
+    name: 'Horse Theft',
+    description: 'You wake to the sound of your horse stamping and blowing. Two figures crouch near the picket line in the dark, working at the knots. One of them has a knife.',
+    trigger: { type: 'territory', condition: 'night camp theft' },
+    biomes: [],
+    acts: [],
+    minDay: 5,
+    maxOccurrences: 1,
+    baseProbability: 0.06,
+    choices: [
+      {
+        id: 'wake_fight',
+        label: 'Wake and fight',
+        description: 'Grab your rifle and fire into the dark. They will not expect resistance.',
+        requirements: [{ type: 'supply', key: 'ammo', minValue: 2 }],
+        available: true,
+      },
+      {
+        id: 'track_dawn',
+        label: 'Track them at dawn',
+        description: 'Let them take the horse. Follow their tracks at first light.',
+        requirements: [{ type: 'skill', key: 'survival', minValue: 25 }],
+        available: true,
+      },
+      {
+        id: 'accept_loss',
+        label: 'Accept the loss',
+        description: 'In the dark, against two men, the odds are poor. Let them go.',
+        requirements: [],
+        available: true,
+      },
+    ],
+  },
+
+  // ---- DISCOVERY: WILD MUSTANG ----
+  {
+    id: 'disc_wild_mustang',
+    type: EncounterType.Discovery,
+    name: 'Wild Mustang Herd',
+    description: 'A band of wild mustangs grazes on the open plain, their manes tangled with burrs and wind. A young dun mare lifts her head and watches you. She is not afraid — not yet.',
+    trigger: { type: 'territory', condition: 'wild horse sighting' },
+    biomes: [Biome.StakedPlains, Biome.ColoradoPlains],
+    acts: [],
+    minDay: 8,
+    maxOccurrences: 1,
+    baseProbability: 0.08,
+    choices: [
+      {
+        id: 'attempt_capture',
+        label: 'Attempt to capture one',
+        description: 'Rope the dun mare. A second horse means more carrying capacity.',
+        requirements: [{ type: 'skill', key: 'survival', minValue: 30 }],
+        available: true,
+      },
+      {
+        id: 'observe_move_on',
+        label: 'Observe and move on',
+        description: 'Watch them run. Some things are better left wild.',
+        requirements: [],
+        available: true,
+      },
+      {
+        id: 'spook_herd',
+        label: 'Ride through the herd',
+        description: 'Scatter them for sport. A foolish impulse.',
+        requirements: [],
+        available: true,
+      },
+    ],
+  },
+
+  // ---- ENVIRONMENTAL: NIGHT PREDATORS ----
+  {
+    id: 'env_night_predators',
+    type: EncounterType.Environmental,
+    name: 'Night Predators',
+    description: 'The horse will not settle. Then you hear it — a low howl answered by another, closer. Eyes catch the firelight at the edge of camp. Wolves or coyotes, circling, patient, waiting for the fire to die.',
+    trigger: { type: 'territory', condition: 'predator territory at night' },
+    biomes: [],
+    acts: [],
+    minDay: 3,
+    maxOccurrences: 0,
+    baseProbability: 0.10,
+    choices: [
+      {
+        id: 'build_fire_larger',
+        label: 'Build the fire larger',
+        description: 'Feed the flames everything you can spare. Keep it burning until dawn.',
+        requirements: [],
+        available: true,
+      },
+      {
+        id: 'stand_guard_rifle',
+        label: 'Stand guard with your rifle',
+        description: 'Sit up all night with the rifle across your knees. Fire if they press close.',
+        requirements: [{ type: 'supply', key: 'ammo', minValue: 2 }],
+        available: true,
+      },
+      {
+        id: 'ignore_hope',
+        label: 'Ignore them and sleep',
+        description: 'They are scavengers, not killers. Probably.',
+        requirements: [],
+        available: true,
+      },
+    ],
+  },
+
+  // ---- TRAIL: LOST IN DARKNESS ----
+  {
+    id: 'trail_lost_darkness',
+    type: EncounterType.Trail,
+    name: 'Lost in Darkness',
+    description: 'The trail vanished an hour after sundown. The stars are blotted by cloud and the horse stumbles on ground you cannot see. You have no idea which direction you are facing.',
+    trigger: { type: 'distance', condition: 'night navigation failure' },
+    biomes: [],
+    acts: [],
+    minDay: 5,
+    maxOccurrences: 0,
+    baseProbability: 0.08,
+    choices: [
+      {
+        id: 'stop_wait_dawn',
+        label: 'Stop and wait for dawn',
+        description: 'Hobble the horse and sleep where you stand. Find the trail by daylight.',
+        requirements: [],
+        available: true,
+      },
+      {
+        id: 'navigate_stars',
+        label: 'Navigate by the stars',
+        description: 'Wait for a break in the clouds. Read Polaris and ride north by northwest.',
+        requirements: [{ type: 'skill', key: 'navigation', minValue: 30 }],
+        available: true,
+      },
+      {
+        id: 'backtrack_known',
+        label: 'Backtrack to the last known point',
+        description: 'Turn around and retrace your steps. Safer than riding blind.',
+        requirements: [],
+        available: true,
+      },
+    ],
+  },
+
+  // ---- SETTLEMENT: FORT SUMNER DEBT ----
+  {
+    id: 'settlement_fort_sumner_debt',
+    type: EncounterType.Settlement,
+    name: 'Fort Sumner Creditor',
+    description: 'A man in a frock coat steps out of the sutler\'s store and blocks your path. He has a ledger under his arm and your name on his lips. He says you owe for supplies taken on credit — flour, salt pork, and a keg of nails. He has witnesses.',
+    trigger: { type: 'waypoint', condition: 'settlement debt claim' },
+    biomes: [Biome.PecosValley],
+    acts: [Act.III],
+    minDay: 18,
+    maxOccurrences: 1,
+    baseProbability: 0.12,
+    choices: [
+      {
+        id: 'pay_debt',
+        label: 'Pay the debt',
+        description: 'The man may be lying. But a dispute at Fort Sumner is the last thing you need.',
+        requirements: [{ type: 'supply', key: 'funds', minValue: 12 }],
+        available: true,
+      },
+      {
+        id: 'dispute_claim',
+        label: 'Dispute the claim',
+        description: 'Tell him you never took a thing. Make him prove it in front of the garrison.',
+        requirements: [],
+        available: true,
+      },
+      {
+        id: 'sneak_away',
+        label: 'Slip away at dawn',
+        description: 'Do not argue. Do not pay. Leave before the sun comes up.',
+        requirements: [],
+        available: true,
+      },
+    ],
+  },
+
+  // ---- ENVIRONMENTAL: MOUNTAIN BLIZZARD ----
+  {
+    id: 'env_mountain_blizzard',
+    type: EncounterType.Environmental,
+    name: 'Mountain Blizzard',
+    description: 'The snow came without warning — thick, horizontal, blinding. Within minutes the trail is gone and the world is white noise. The horse lowers its head and will not move. The temperature is dropping fast.',
+    trigger: { type: 'weather', condition: 'mountain blizzard' },
+    biomes: [Biome.MountainPass],
+    acts: [Act.IV],
+    minDay: 25,
+    maxOccurrences: 1,
+    baseProbability: 0.10,
+    choices: [
+      {
+        id: 'push_summit',
+        label: 'Push through the summit',
+        description: 'Force the horse uphill. If you stop, the snow buries you.',
+        requirements: [],
+        available: true,
+      },
+      {
+        id: 'shelter_treeline',
+        label: 'Shelter in the treeline',
+        description: 'Find pines thick enough to break the wind. Wait it out.',
+        requirements: [],
+        available: true,
+      },
+      {
+        id: 'turn_back_low',
+        label: 'Turn back to lower ground',
+        description: 'Retreat below the snowline. A day lost, but you will live to try again.',
+        requirements: [],
+        available: true,
+      },
+    ],
+  },
+
+  // ---- DISCOVERY: COLORADO SETTLER ----
+  {
+    id: 'disc_colorado_settler',
+    type: EncounterType.Discovery,
+    name: 'Colorado Settler',
+    description: 'A homesteader waves from behind a sod fence. His place is new — fresh-turned earth, a half-built cabin, chickens scratching in the yard. He has the look of a man who left somewhere worse to get here.',
+    trigger: { type: 'territory', condition: 'settler homestead' },
+    biomes: [Biome.ColoradoPlains],
+    acts: [Act.V],
+    minDay: 35,
+    maxOccurrences: 1,
+    baseProbability: 0.10,
+    choices: [
+      {
+        id: 'trade_supplies',
+        label: 'Trade supplies',
+        description: 'He has eggs, flour, and cured meat. Good rates for a man this far from a store.',
+        requirements: [{ type: 'supply', key: 'tradeGoods', minValue: 3 }],
+        available: true,
+      },
+      {
+        id: 'ask_directions',
+        label: 'Ask for directions to Denver',
+        description: 'He knows the country. A shortcut could save you a day.',
+        requirements: [],
+        available: true,
+      },
+      {
+        id: 'share_meal',
+        label: 'Share a meal',
+        description: 'Sit at his table, share what you have, hear what he knows. Costs food but feeds the spirit.',
+        requirements: [{ type: 'supply', key: 'food', minValue: 3 }],
+        available: true,
+      },
+    ],
+  },
 ];
 
 // ============================================================
@@ -2502,6 +2872,271 @@ export const ENCOUNTER_OUTCOMES: Record<string, EncounterOutcome> = {
     effects: [
       { type: 'time', target: 'days', delta: 0.25 },
       { type: 'morale', target: 'player', delta: 6 },
+    ],
+  },
+
+  // ---- PARTY: ELIAS'S CONFESSION ----
+  'party_elias_confession:listen_sympathize': {
+    choiceId: 'listen_sympathize',
+    description: 'You said nothing. Let the fire pop and the silence do its work. After a while Elias put his kepi back on and nodded, once. Something loosened between you.',
+    effects: [
+      { type: 'loyalty', target: 'elias', delta: 8 },
+      { type: 'morale', target: 'player', delta: 2 },
+    ],
+  },
+  'party_elias_confession:question_honor': {
+    choiceId: 'question_honor',
+    description: 'The words landed like stones. Elias went rigid, then stood and walked into the dark without a word. He rode at the back of the column for the next three days.',
+    effects: [
+      { type: 'loyalty', target: 'elias', delta: -10 },
+      { type: 'morale', target: 'player', delta: -3 },
+    ],
+  },
+  'party_elias_confession:share_past': {
+    choiceId: 'share_past',
+    description: 'You told him about the things you did to survive. The things that follow you into sleep. He listened the way a man listens who understands. By morning you were closer than brothers.',
+    effects: [
+      { type: 'loyalty', target: 'elias', delta: 10 },
+      { type: 'morale', target: 'player', delta: 5 },
+    ],
+  },
+
+  // ---- PARTY: LUISA'S DILEMMA ----
+  'party_luisa_family:encourage_go': {
+    choiceId: 'encourage_go',
+    description: 'Luisa packed her saddlebags before dawn. She pressed a bundle of dried herbs into your hands and rode south without looking back. The trail felt emptier after that.',
+    effects: [
+      { type: 'companion', target: 'luisa', delta: 0 },
+      { type: 'morale', target: 'player', delta: 5 },
+      { type: 'supply', target: 'medical', delta: 3 },
+    ],
+  },
+  'party_luisa_family:convince_stay': {
+    choiceId: 'convince_stay',
+    description: 'She stayed. But she stopped singing at the cook fire and her eyes drifted south at every horizon. She was with you in body. The rest of her was in Santa Fe.',
+    effects: [
+      { type: 'loyalty', target: 'luisa', delta: 6 },
+      { type: 'morale', target: 'player', delta: -2 },
+    ],
+  },
+  'party_luisa_family:offer_detour': {
+    choiceId: 'offer_detour',
+    description: 'You turned south. Three days lost to the detour, but Luisa found her mother alive and mending. She rejoined you with a fierceness in her stride that had not been there before.',
+    effects: [
+      { type: 'time', target: 'days', delta: 3 },
+      { type: 'loyalty', target: 'luisa', delta: 12 },
+      { type: 'morale', target: 'player', delta: 3 },
+    ],
+  },
+
+  // ---- PARTY: TOM'S TEST ----
+  'party_tom_courage:handle_yourself': {
+    choiceId: 'handle_yourself',
+    description: 'You stepped past the boy, pinned the snake behind the head, and flicked it off the trail. Tom watched every move. He did not thank you, but that night he asked you to show him how to hold a knife.',
+    effects: [
+      { type: 'loyalty', target: 'tom', delta: 6 },
+      { type: 'morale', target: 'player', delta: 2 },
+    ],
+  },
+  'party_tom_courage:push_tom': {
+    choiceId: 'push_tom',
+    description: 'Tom\'s hands shook, but he got down. Took three tries with the stick before the snake lay still. The boy was pale and sweating but he stood taller after. He will remember this day.',
+    effects: [
+      { type: 'loyalty', target: 'tom', delta: 8 },
+      { type: 'health', target: 'companion', delta: -3 },
+    ],
+  },
+  'party_tom_courage:laugh_off': {
+    choiceId: 'laugh_off',
+    description: 'You laughed and rode around it. Tom said nothing, but something went out of his eyes. He did not sit near the fire that night.',
+    effects: [
+      { type: 'loyalty', target: 'tom', delta: -8 },
+      { type: 'morale', target: 'player', delta: -3 },
+    ],
+  },
+
+  // ---- HOSTILE: HORSE THEFT ----
+  'hostile_horse_theft:wake_fight': {
+    choiceId: 'wake_fight',
+    description: 'You fired twice in the dark. One of them yelped and they both ran, crashing through the brush. The horse was spooked but still on the line. Your hands did not stop shaking until dawn.',
+    effects: [
+      { type: 'supply', target: 'ammo', delta: -2 },
+      { type: 'morale', target: 'player', delta: 4 },
+    ],
+  },
+  'hostile_horse_theft:track_dawn': {
+    choiceId: 'track_dawn',
+    description: 'The tracks led three miles north to a dry camp. Your horse stood picketed in a mesquite thicket, still saddled. The thieves were gone. You lost half a day but the horse was sound.',
+    effects: [
+      { type: 'time', target: 'days', delta: 0.5 },
+      { type: 'morale', target: 'player', delta: 2 },
+    ],
+  },
+  'hostile_horse_theft:accept_loss': {
+    choiceId: 'accept_loss',
+    description: 'You lay in the dark and listened to them lead your horse away. By morning the tracks were cold. You shouldered your pack and started walking. The trail stretches long when you walk it.',
+    effects: [
+      { type: 'health', target: 'horse', delta: -100 },
+      { type: 'morale', target: 'player', delta: -15 },
+    ],
+  },
+
+  // ---- DISCOVERY: WILD MUSTANG ----
+  'disc_wild_mustang:attempt_capture': {
+    choiceId: 'attempt_capture',
+    description: 'It took two hours and all the patience you had. The dun mare fought the rope, then stood trembling, ears flat. By evening she was following on a lead. You now have a pack horse.',
+    effects: [
+      { type: 'transport', target: 'packHorse', delta: 0 },
+      { type: 'morale', target: 'player', delta: 5 },
+      { type: 'time', target: 'days', delta: 0.25 },
+    ],
+  },
+  'disc_wild_mustang:observe_move_on': {
+    choiceId: 'observe_move_on',
+    description: 'You watched them run — thirty head strung out across the plain, manes streaming. Then they were gone into the grass and the land was empty again. You felt lighter for the seeing.',
+    effects: [
+      { type: 'morale', target: 'player', delta: 6 },
+    ],
+  },
+  'disc_wild_mustang:spook_herd': {
+    choiceId: 'spook_herd',
+    description: 'You rode through whooping like a fool and they scattered. Your horse got excited and ran too far. It took an hour to settle down and find the trail again. A waste of time and sweat.',
+    effects: [
+      { type: 'time', target: 'days', delta: 0.25 },
+      { type: 'health', target: 'horse', delta: -3 },
+      { type: 'morale', target: 'player', delta: -2 },
+    ],
+  },
+
+  // ---- ENVIRONMENTAL: NIGHT PREDATORS ----
+  'env_night_predators:build_fire_larger': {
+    choiceId: 'build_fire_larger',
+    description: 'You fed the fire until it roared. The eyes retreated. By morning, nothing remained but tracks in the dust — large tracks, closer than you liked.',
+    effects: [
+      { type: 'supply', target: 'food', delta: -2 },
+      { type: 'morale', target: 'player', delta: 2 },
+    ],
+  },
+  'env_night_predators:stand_guard_rifle': {
+    choiceId: 'stand_guard_rifle',
+    description: 'You sat up all night with the rifle. Fired once when a shadow pressed too close. They scattered and did not return. You rode the next day in a fog of exhaustion.',
+    effects: [
+      { type: 'supply', target: 'ammo', delta: -1 },
+      { type: 'health', target: 'player', delta: -4 },
+      { type: 'morale', target: 'player', delta: 3 },
+    ],
+  },
+  'env_night_predators:ignore_hope': {
+    choiceId: 'ignore_hope',
+    description: 'You rolled over and pulled the blanket higher. Sometime before dawn, the horse screamed. You found claw marks on its haunch at first light. Nothing fatal, but the animal was skittish for days.',
+    effects: [
+      { type: 'health', target: 'horse', delta: -8 },
+      { type: 'morale', target: 'player', delta: -5 },
+    ],
+  },
+
+  // ---- TRAIL: LOST IN DARKNESS ----
+  'trail_lost_darkness:stop_wait_dawn': {
+    choiceId: 'stop_wait_dawn',
+    description: 'You hobbled the horse and slept in the saddle blanket. At first light the trail was fifty yards to the east. Half a day lost to the dark.',
+    effects: [
+      { type: 'time', target: 'days', delta: 0.5 },
+    ],
+  },
+  'trail_lost_darkness:navigate_stars': {
+    choiceId: 'navigate_stars',
+    description: 'The clouds parted for ten minutes. Enough. You found Polaris, set your bearing, and rode north-northwest. By midnight the trail ruts appeared under the horse\'s hooves.',
+    effects: [
+      { type: 'morale', target: 'player', delta: 5 },
+    ],
+  },
+  'trail_lost_darkness:backtrack_known': {
+    choiceId: 'backtrack_known',
+    description: 'You turned around and walked the horse back the way you came, testing each step. An hour later you found the cairn you passed at dusk. Safe, but the lost miles stung.',
+    effects: [
+      { type: 'route', target: 'detour', delta: '8' },
+      { type: 'time', target: 'days', delta: 0.25 },
+    ],
+  },
+
+  // ---- SETTLEMENT: FORT SUMNER DEBT ----
+  'settlement_fort_sumner_debt:pay_debt': {
+    choiceId: 'pay_debt',
+    description: 'You counted out the money under his watchful eye. He wrote paid in the ledger and tipped his hat. Whether the debt was real or not, the matter was settled.',
+    effects: [
+      { type: 'supply', target: 'funds', delta: -12 },
+      { type: 'morale', target: 'player', delta: -2 },
+    ],
+  },
+  'settlement_fort_sumner_debt:dispute_claim': {
+    choiceId: 'dispute_claim',
+    description: 'You called his bluff in front of the garrison sergeant. The witnesses could not agree on the date, and the sergeant told the man to produce a signed receipt or drop the matter. He had none. He slunk away, but his eyes promised trouble.',
+    effects: [
+      { type: 'morale', target: 'player', delta: 5 },
+    ],
+  },
+  'settlement_fort_sumner_debt:sneak_away': {
+    choiceId: 'sneak_away',
+    description: 'You packed in the dark and left before the roosters crowed. No one followed. But the feeling of running sat heavy in your chest all morning.',
+    effects: [
+      { type: 'morale', target: 'player', delta: -6 },
+      { type: 'time', target: 'days', delta: -0.25 },
+    ],
+  },
+
+  // ---- ENVIRONMENTAL: MOUNTAIN BLIZZARD ----
+  'env_mountain_blizzard:push_summit': {
+    choiceId: 'push_summit',
+    description: 'You forced the horse uphill through drifts that reached its belly. Ice formed on your eyebrows and the wind cut through everything. At the summit the world opened up and the snow thinned. You were through, but the cost was written in frostbite and exhaustion.',
+    effects: [
+      { type: 'health', target: 'player', delta: -8 },
+      { type: 'health', target: 'horse', delta: -10 },
+      { type: 'morale', target: 'player', delta: 4 },
+    ],
+  },
+  'env_mountain_blizzard:shelter_treeline': {
+    choiceId: 'shelter_treeline',
+    description: 'You found a stand of blue spruce dense enough to cut the wind. Built a fire against a rock face and huddled with the horse. The storm blew through by nightfall. Cold, hungry, but alive.',
+    effects: [
+      { type: 'time', target: 'days', delta: 0.75 },
+      { type: 'supply', target: 'food', delta: -3 },
+      { type: 'health', target: 'player', delta: -3 },
+    ],
+  },
+  'env_mountain_blizzard:turn_back_low': {
+    choiceId: 'turn_back_low',
+    description: 'You turned the horse downhill and let it pick its own way through the drifts. Below the treeline the air was warmer and the snow turned to rain. A full day gone, but nothing broken that cannot mend.',
+    effects: [
+      { type: 'time', target: 'days', delta: 1 },
+      { type: 'morale', target: 'player', delta: -5 },
+    ],
+  },
+
+  // ---- DISCOVERY: COLORADO SETTLER ----
+  'disc_colorado_settler:trade_supplies': {
+    choiceId: 'trade_supplies',
+    description: 'The settler had eggs, smoked venison, and a sack of cornmeal. He traded fair and threw in a jug of buttermilk for the road. Out here, a honest man is worth more than a trading post.',
+    effects: [
+      { type: 'supply', target: 'tradeGoods', delta: -3 },
+      { type: 'supply', target: 'food', delta: 8 },
+      { type: 'morale', target: 'player', delta: 3 },
+    ],
+  },
+  'disc_colorado_settler:ask_directions': {
+    choiceId: 'ask_directions',
+    description: 'He drew a map in the dirt with a stick — a creek crossing, a notch in the hills, a line of cottonwoods to follow north. He said you could make Denver in two days if you did not dawdle.',
+    effects: [
+      { type: 'morale', target: 'player', delta: 5 },
+      { type: 'route', target: 'shortcut', delta: '-10' },
+    ],
+  },
+  'disc_colorado_settler:share_meal': {
+    choiceId: 'share_meal',
+    description: 'You sat at his plank table and shared what you had. He talked about the land, the weather, the Utes in the hills. His wife brought coffee. For an hour the trail did not exist.',
+    effects: [
+      { type: 'supply', target: 'food', delta: -2 },
+      { type: 'morale', target: 'player', delta: 8 },
+      { type: 'health', target: 'player', delta: 3 },
     ],
   },
 };

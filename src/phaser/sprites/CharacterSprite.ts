@@ -43,7 +43,15 @@ export class CharacterSprite {
   private accessories: Map<string, AccessoryOverlay> = new Map();
   private isPlaceholder: boolean;
   private walkBobTween?: Phaser.Tweens.Tween;
+  private strideTween?: Phaser.Tweens.Tween;
+  private rimStrideTween?: Phaser.Tweens.Tween;
+  private headNodTween?: Phaser.Tweens.Tween;
+  private breathingTween?: Phaser.Tweens.Tween;
+  private rimBreathingTween?: Phaser.Tweens.Tween;
+  private accessoryBreathingTweens: Phaser.Tweens.Tween[] = [];
+  private lastWalkState?: AnimationState;
   private baseY = 0;
+  private baseX = 0;
 
   constructor(
     scene: Phaser.Scene,
@@ -76,6 +84,7 @@ export class CharacterSprite {
     this.sprite.setOrigin(0.5, 1); // Anchor at feet for ground-line alignment
     this.sprite.setScale(scale);
     this.baseY = y;
+    this.baseX = x;
 
     // Create accessory overlays
     if (accessoryConfigs) {
@@ -87,12 +96,16 @@ export class CharacterSprite {
     // Start in Idle
     this.playState(AnimationState.Idle);
 
-    // Sub-pixel breathing — gentle scaleY oscillation prevents static "frozen" look
-    // (Visual Style Guide §3: Secondary Motion)
-    scene.tweens.add({
+    // Sub-pixel breathing — gentle scaleY oscillation prevents static "frozen" look.
+    // Paused during Walk/Run to avoid conflict with stride stretch tween.
+    // Horses breathe slower (3500ms) for a more natural large-animal cadence.
+    const isHorse = config.key.includes('horse');
+    const breathDuration = isHorse ? 3500 : 2000;
+
+    this.breathingTween = scene.tweens.add({
       targets: this.sprite,
       scaleY: { from: scale, to: scale * 1.015 },
-      duration: 2000,
+      duration: breathDuration,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut',
@@ -101,10 +114,10 @@ export class CharacterSprite {
     // Sync breathing to rim sprite
     if (this.rimSprite) {
       const rimScale = scale * RIM_SCALE_FACTOR;
-      scene.tweens.add({
+      this.rimBreathingTween = scene.tweens.add({
         targets: this.rimSprite,
         scaleY: { from: rimScale, to: rimScale * 1.015 },
-        duration: 2000,
+        duration: breathDuration,
         yoyo: true,
         repeat: -1,
         ease: 'Sine.easeInOut',
@@ -114,14 +127,15 @@ export class CharacterSprite {
     // Sync breathing to accessories
     for (const acc of this.accessories.values()) {
       acc.sprite.setScale(scale);
-      scene.tweens.add({
+      const accTween = scene.tweens.add({
         targets: acc.sprite,
         scaleY: { from: scale, to: scale * 1.015 },
-        duration: 2000,
+        duration: breathDuration,
         yoyo: true,
         repeat: -1,
         ease: 'Sine.easeInOut',
       });
+      this.accessoryBreathingTweens.push(accTween);
     }
   }
 
@@ -135,6 +149,9 @@ export class CharacterSprite {
    * Returns true if the transition was accepted.
    */
   playState(state: AnimationState): boolean {
+    // Guard against calls after destroy (scene shutdown race)
+    if (!this.sprite.scene) return false;
+
     // Allow self-transition and initial play
     if (state !== this.currentState) {
       if (!isValidTransition(this.currentState, state)) {
@@ -152,6 +169,13 @@ export class CharacterSprite {
       this.sprite.play(key);
       this.applyPaceToAnimation();
     }
+
+    // Pause breathing during movement states to avoid conflict with stride stretch.
+    const NON_BREATHING = [AnimationState.Walk, AnimationState.Run, AnimationState.Ride];
+    const shouldBreathe = !NON_BREATHING.includes(state);
+    if (this.breathingTween) this.breathingTween.paused = !shouldBreathe;
+    if (this.rimBreathingTween) this.rimBreathingTween.paused = !shouldBreathe;
+    for (const t of this.accessoryBreathingTweens) t.paused = !shouldBreathe;
 
     // Walk-bob: gentle vertical bounce to convey movement
     this.updateWalkBob(state);
@@ -218,7 +242,8 @@ export class CharacterSprite {
   private applyPaceToAnimation(): void {
     if (this.sprite.anims.currentAnim) {
       const rowConfig = this.config.rows[this.currentState];
-      const msPerFrame = 1000 / (rowConfig.baseFrameRate * this.paceMultiplier);
+      const safeMultiplier = Math.max(0.01, this.paceMultiplier);
+      const msPerFrame = 1000 / (rowConfig.baseFrameRate * safeMultiplier);
       this.sprite.anims.msPerFrame = msPerFrame;
       if (this.rimSprite?.anims.currentAnim) {
         this.rimSprite.anims.msPerFrame = msPerFrame;
@@ -227,32 +252,118 @@ export class CharacterSprite {
   }
 
   /**
-   * Start or stop a gentle vertical bob to convey walking movement.
-   * More effective than relying on leg-frame detail in silhouettes.
+   * Start or stop walk motion tweens:
+   * 1. Vertical bob — scaled to entity size (horses bob more than humans)
+   * 2. Stride stretch — subtle scaleX oscillation simulating body compression
+   * 3. Head nod — x-position oscillation for horses (natural head motion)
    */
   private updateWalkBob(state: AnimationState): void {
     const isWalking = state === AnimationState.Walk || state === AnimationState.Run;
 
-    if (isWalking && !this.walkBobTween) {
-      const bobAmount = state === AnimationState.Run ? 3 : 2;
-      const bobDuration = state === AnimationState.Run ? 250 : 400;
-      const targets = [this.sprite];
-      if (this.rimSprite) targets.push(this.rimSprite);
+    // Recreate tweens if switching between Walk↔Run (different bob timing)
+    if (isWalking && this.walkBobTween && state !== this.lastWalkState) {
+      this.walkBobTween?.remove();
+      this.walkBobTween = undefined;
+      this.strideTween?.remove();
+      this.strideTween = undefined;
+      this.rimStrideTween?.remove();
+      this.rimStrideTween = undefined;
+      this.headNodTween?.remove();
+      this.headNodTween = undefined;
+    }
 
+    if (isWalking && !this.walkBobTween) {
+      this.lastWalkState = state;
+      const isRunning = state === AnimationState.Run;
+      const isHorse = this.config.key.includes('horse');
+      const scale = SPRITE_SCALE[this.config.key] ?? 1.0;
+
+      // Bob scales with entity size: horses (80px) bob more than humans (64px)
+      const sizeFactor = this.config.frameHeight / 64;
+      const baseBob = isRunning ? 3 : 2;
+      const bobAmount = Math.round(baseBob * sizeFactor * (isHorse ? 1.5 : 1));
+      const bobDuration = isRunning ? 200 : 350;
+
+      // Collect all sprites that should move together
+      const accSprites = Array.from(this.accessories.values()).map(a => a.sprite);
+
+      const yTargets: Phaser.GameObjects.Sprite[] = [this.sprite, ...accSprites];
+      if (this.rimSprite) yTargets.push(this.rimSprite);
+
+      // 1. Vertical bob
       this.walkBobTween = this.sprite.scene.tweens.add({
-        targets,
+        targets: yTargets,
         y: { from: this.baseY, to: this.baseY - bobAmount },
         duration: bobDuration,
         yoyo: true,
         repeat: -1,
         ease: 'Sine.easeInOut',
       });
-    } else if (!isWalking && this.walkBobTween) {
-      this.walkBobTween.stop();
+
+      // 2. Stride stretch — body compresses/extends during gait
+      const stretchAmount = isHorse ? 0.03 : 0.02;
+      this.strideTween = this.sprite.scene.tweens.add({
+        targets: [this.sprite, ...accSprites],
+        scaleX: { from: scale * (1 - stretchAmount), to: scale * (1 + stretchAmount) },
+        duration: bobDuration,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+
+      // Rim sprite gets its own stride tween (different base scale)
+      if (this.rimSprite) {
+        const rimScale = scale * RIM_SCALE_FACTOR;
+        this.rimStrideTween = this.sprite.scene.tweens.add({
+          targets: this.rimSprite,
+          scaleX: { from: rimScale * (1 - stretchAmount), to: rimScale * (1 + stretchAmount) },
+          duration: bobDuration,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut',
+        });
+      }
+
+      // 3. Head nod — horses naturally bob their head forward/back while walking
+      if (isHorse) {
+        const nodAmount = isRunning ? 3 : 2;
+        const xTargets: Phaser.GameObjects.Sprite[] = [this.sprite, ...accSprites];
+        if (this.rimSprite) xTargets.push(this.rimSprite);
+
+        this.headNodTween = this.sprite.scene.tweens.add({
+          targets: xTargets,
+          x: { from: this.baseX - nodAmount, to: this.baseX + nodAmount },
+          duration: bobDuration * 2, // Half the frequency of the bob
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut',
+        });
+      }
+    } else if (!isWalking && (this.walkBobTween || this.strideTween || this.headNodTween)) {
+      this.walkBobTween?.remove();
       this.walkBobTween = undefined;
-      // Reset to base position
+      this.strideTween?.remove();
+      this.strideTween = undefined;
+      this.rimStrideTween?.remove();
+      this.rimStrideTween = undefined;
+      this.headNodTween?.remove();
+      this.headNodTween = undefined;
+
+      // Reset position and scaleX only — scaleY is owned by the breathing tween.
+      const scale = SPRITE_SCALE[this.config.key] ?? 1.0;
       this.sprite.y = this.baseY;
-      if (this.rimSprite) this.rimSprite.y = this.baseY;
+      this.sprite.x = this.baseX;
+      this.sprite.scaleX = scale;
+      if (this.rimSprite) {
+        this.rimSprite.y = this.baseY;
+        this.rimSprite.x = this.baseX;
+        this.rimSprite.scaleX = scale * RIM_SCALE_FACTOR;
+      }
+      for (const acc of this.accessories.values()) {
+        acc.sprite.scaleX = scale;
+        acc.syncPosition();
+      }
+      this.lastWalkState = undefined;
     }
   }
 
@@ -277,6 +388,8 @@ export class CharacterSprite {
   // ============================================================
 
   setPosition(x: number, y: number): void {
+    this.baseX = x;
+    this.baseY = y;
     this.sprite.setPosition(x, y);
     this.rimSprite?.setPosition(x, y);
     for (const acc of this.accessories.values()) {
@@ -327,6 +440,13 @@ export class CharacterSprite {
   }
 
   destroy(): void {
+    this.breathingTween?.remove();
+    this.rimBreathingTween?.remove();
+    for (const t of this.accessoryBreathingTweens) t.remove();
+    this.walkBobTween?.remove();
+    this.strideTween?.remove();
+    this.rimStrideTween?.remove();
+    this.headNodTween?.remove();
     for (const acc of this.accessories.values()) {
       acc.sprite.destroy();
     }
@@ -433,8 +553,7 @@ class AccessoryOverlay {
   }
 
   syncState(state: AnimationState, paceMultiplier: number): void {
-    if (!this.sprite.visible) return;
-
+    // Track state even when invisible so accessories are correct when re-shown.
     const parentConfig = this.parent.config;
     // Accessories use matching spritesheet key from accConfig
     const key = animKey(this.accConfig.spriteKey, state);

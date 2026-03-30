@@ -277,6 +277,10 @@ button:active:not(:disabled) {
   to   { transform: translateY(0); }
 }
 
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
 .mobile-day-sheet {
   animation: slideUpSheet 0.25s ease-out;
 }

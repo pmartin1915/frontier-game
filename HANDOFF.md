@@ -1,131 +1,200 @@
-# Frontier — Session Handoff (2026-03-24, Session 5)
+# Frontier — Session Handoff (2026-03-25, Session 6)
 
 ## Handoff Metadata
 
-- **Timestamp:** 2026-03-24T17:15
+- **Timestamp:** 2026-03-25T19:30
 - **Sending Agent:** Claude Opus 4.6 (Claude Code)
-- **Reason:** Session complete — narrator wired, sprites fixed, playtest sweep built
+- **Reason:** Session complete — animation fixes, terrain scroll, encounters, narrator polish, sprite curation
 - **Branch:** main (uncommitted changes — see below)
-- **Previous commit:** `0851a6d` fix: regenerate 3 sprites + disable broken accessories
-- **Tests:** 401/401 Vitest, 28/29 Playwright (1 pre-existing SkyRenderer issue), TypeScript clean
+- **Latest commit:** `124f320` docs: update STATE.md — close API verification loop, update What's Next
+- **Tests:** 418/418 Vitest, TypeScript clean, ESLint clean
+
+---
+
+## ⚠️ CRITICAL: Walk Animation Only Plays During 3-Second Travel Phase
+
+Walk animation ONLY plays when `dailyCyclePhase === 'travel'` (3s normal, 1.5s auto-play).
+The game starts in camp/idle. If you don't see walk animation, you must **advance a day** and watch the brief travel window.
+
+**How to verify:** `npm run dev` → click "Next Day" → watch the 3-second TrailScene travel phase.
+
+Session 5 wasted hours debugging sprites that were actually fine because walk wasn't being observed during the correct phase. Don't repeat this.
+
+---
 
 ## What Was Done This Session
 
-### 1. Narrator End-to-End Wiring (MAJOR)
+### 1. Animation Bug Fixes (CharacterSprite.ts) — Cross-Model Audited
 
-The narrator system was 95% built but the dev proxy didn't support Anthropic. Now fully working.
+**Gemini 2.5 Pro code review** identified 5 bugs. All fixed:
 
-**Changes to `vite.config.ts`:**
-- Added `callAnthropic()` with prompt caching (`cache_control: ephemeral`), per-voice temperature/max_tokens, XML user content assembly
-- Added `VOICE_CONFIG` (Adams 0.65/400, Irving 0.75/600, McMurtry 0.55/450)
-- Added `assembleXMLUserContent()` — matches production `api/narrator.ts` exactly
-- Updated Moonshot and Gemini to also use XML assembly (dev/prod parity)
-- Fixed error leakage: dev proxy now returns generic error to browser (was leaking upstream API details)
-- Added console logging for narrator response metrics
+| Bug | Severity | Fix |
+|-----|----------|-----|
+| Breathing tween runs during Walk/Run ("seizure") | HIGH | Paused during Walk/Run, resumed on Idle. Horses: 3500ms (was 2000ms) |
+| Accessories float during walk-bob | HIGH | Accessory sprites added to all walk tween target arrays |
+| Walk→Run inherits Walk's bob timing | MEDIUM | Added `lastWalkState` tracking, recreates tweens on pace change |
+| Rim sprite missing stride stretch | MEDIUM | Separate `rimStrideTween` with correct scale base |
+| Tween cleanup uses .stop() | LOW | Replaced with .remove() for immediate cleanup |
+| playState() crash after destroy | MEDIUM | Added `if (!this.sprite.scene) return false` guard |
 
-**Changes to `.env.local`:**
-- `ANTHROPIC_API_KEY` set (Perry's key, $1.49 budget remaining)
-- `VITE_NARRATOR_PROVIDER=anthropic` (was `gemini`)
+**File:** `src/phaser/sprites/CharacterSprite.ts`
 
-**Verified working:** Claude Sonnet generates period-accurate Andy Adams prose. ~7.7s latency, ~190 output tokens, ~$0.008/call.
+### 2. Terrain Parallax Scrolling (terrain-layers.ts)
 
-### 2. Daily Cycle Resilience Fix
+Terrain silhouettes now scroll during the travel phase:
+- Textures generated at **2x viewport width** for seamless tiling
+- Each profile is drawn twice side-by-side on the canvas
+- **Smoothstep crossfade** in last 15% blends back to starting height (no seam pop)
+- Per-layer parallax speeds: far 0.06, mid 0.15, near 0.35
+- Wired into `TrailScene.update()` alongside scenery/ground/cloud scroll
 
-**`src/engine/daily-cycle.ts`:**
-- Wrapped `applyDayResults()` in try-catch so SkyRenderer texture errors in headless mode don't prevent `applyNarratorResponse()` from running
-- Added **travel animation delay**: 3 seconds normal play, 1.5 seconds auto-play — sprites now visibly walk with parallax before day resolves
+**Files:** `src/phaser/effects/terrain-layers.ts`, `src/phaser/scenes/TrailScene.ts`
 
-### 3. Horse Sprite Fixes
+### 3. 10 New Encounter Templates (17 → 27)
 
-**Problem:** Horse spritesheet had inconsistent frame directions. Idle frame 1 was reversed, Run row (Row 2) faced opposite direction from all other rows.
+Cross-model analysis (Gemini 2.5 Flash) identified encounter system gaps. Added:
 
-**Fix (from clean backup):**
-- `horse_riding_base.png`: Flipped idle frame 1 + all 6 Run row frames
-- `horse_draft_base.png`: Same fix applied
-- Backups preserved as `*_pre_flip_fix.png`
+| Category | Templates | IDs |
+|----------|-----------|-----|
+| Companion backstory (3) | Elias confession, Luisa family, Tom courage | `party_elias_confession`, `party_luisa_family`, `party_tom_courage` |
+| Horse encounters (2) | Night theft, wild mustang | `hostile_horse_theft`, `disc_wild_mustang` |
+| Night travel (2) | Wolf predators, lost in darkness | `env_night_predators`, `trail_lost_darkness` |
+| Act-specific (3) | Fort Sumner debt, mountain blizzard, Colorado settler | `settlement_fort_sumner_debt`, `env_mountain_blizzard`, `disc_colorado_settler` |
 
-### 4. Sprite Scale Rebalance
+Each template has 3 choices with period-accurate outcomes (30 new outcomes total).
 
-**`src/phaser/sprite-registry.ts`:**
-- `player_cowboy`: 0.65 → **0.50** (64px × 0.50 = 32px, more proportional to horse)
-- Companions scaled down: Elias 0.52, Luisa 0.50, Tom 0.53 (from 0.60-0.63)
-- Horse/wagon/cat unchanged (0.55/0.55/0.35)
+**File:** `src/data/encounter-templates.ts`
 
-### 5. Playtest Sweep Script (NEW)
+### 4. Narrator Typewriter Text Reveal (TravelLog.tsx)
 
-**`e2e/playtest-sweep.ts`** — Automated QA tool:
-- Playwright plays N days, captures screenshots + full game state at every transition
-- Outputs to `ai/playtest/manifest.json` + `ai/playtest/report-input.md`
-- Report includes stat trajectories, narrator entries, companion tracking, review rubric
-- **npm scripts:** `npm run playtest` (15 days), `npm run playtest:short` (5 days)
-- Requires dev server running (`npm run dev`)
+- New log entries type out at **40 chars/sec** with blinking cursor
+- **Click to skip** — reveals full text immediately
+- **Voice-specific typography:**
+  - Adams: Crimson Text serif (default)
+  - Irving: Crimson Text serif, italic
+  - McMurtry: Inter sans-serif, bold, tight letter-spacing
+- `@keyframes blink` added to `frontier-theme.css`
+
+**Files:** `src/ui/panels/TravelLog.tsx`, `src/ui/layout/frontier-theme.css`
+
+### 5. Horse Sprite Sheet Curation
+
+Per Perry's visual review of the sheets:
+
+| Row | Action | Reason |
+|-----|--------|--------|
+| Row 1 (Walk) | **Replaced with idle frames** (repeated 4→8) | Multi-legged Gemini artifacts |
+| Row 2 (Run) | **Flipped to face right** | Was facing left, opposite all other rows |
+| Row 5-6 (Interact/Injured) | **Noted as idle candidates** | Perry identified good poses for future idle row |
+
+Applied to both `horse_riding_base.png` and `horse_draft_base.png`.
+Backups: `*_pre_row_fix.png`
+
+**Effect:** Walk animation now shows the horse standing still (idle frames). This is intentional — broken walk frames removed. Future session should generate proper walk frames via the pose-reference pipeline.
+
+---
 
 ## Uncommitted Changes
 
-All changes are in the working tree, not yet committed. Files modified:
+All changes are in the working tree, not yet committed:
 
 | File | Change |
 |------|--------|
-| `vite.config.ts` | Anthropic dev proxy, XML assembly, error fix |
-| `.env.local` | API key + provider config |
-| `src/engine/daily-cycle.ts` | Resilience fix + travel animation delay |
-| `src/phaser/sprite-registry.ts` | Scale rebalance (cowboy 0.50, companions down) |
-| `public/assets/sprites/horse_riding_base.png` | Frame direction fixes |
-| `public/assets/sprites/horse_draft_base.png` | Frame direction fixes |
-| `e2e/playtest-sweep.ts` | NEW — automated playtest sweep |
-| `package.json` | Added `playtest` and `playtest:short` scripts |
+| `src/phaser/sprites/CharacterSprite.ts` | Breathing pause/resume, accessory walk sync, rim stride, destroy guard, Walk→Run fix |
+| `src/phaser/effects/terrain-layers.ts` | 2x-wide textures, parallax scroll update(), seamless crossfade |
+| `src/phaser/scenes/TrailScene.ts` | Wired `terrainLayers.update()` in update loop |
+| `src/data/encounter-templates.ts` | 10 new templates + 30 outcomes |
+| `src/ui/panels/TravelLog.tsx` | Typewriter text reveal + voice-specific styling |
+| `src/ui/layout/frontier-theme.css` | `@keyframes blink` for cursor |
+| `public/assets/sprites/horse_riding_base.png` | Walk row replaced, run row flipped |
+| `public/assets/sprites/horse_draft_base.png` | Walk row replaced, run row flipped |
 
-## Priority 1: Parallax Background Extension + Slow Pan
+---
 
-**Perry's request for next session:**
+## Priority 0: Visual Audit (BEFORE touching code)
 
-The trail scene currently uses procedural terrain layers (`phaser/effects/terrain-layers.ts`) and a `SceneryManager` with Poisson-disk placed scenery objects. Perry wants:
+**Observe first.** Start `npm run dev`, then:
 
-1. **Generate extended background art** using Gemini (or the same tool that made the original backgrounds) — a seamless tileable background that can be tacked onto the existing one
-2. **Implement a slow horizontal pan** during the travel phase to show the horse/cowboy walking with the scenery scrolling left
-3. The current `SceneryManager` already scrolls scenery objects during walk (`sceneryManager.update(delta, isMoving, paceSpeed)`), but the sky/ground textures are static — they need to scroll too
+1. **Camp phase** — watch idle horse. Breathing tween should be subtle (3500ms cycle), NOT a seizure tremor.
+2. **Advance a day** — watch 3-second travel phase:
+   - Terrain silhouettes should scroll at 3 different speeds (parallax)
+   - Horse will show standing frames during walk (intentional — walk row replaced)
+   - Scenery objects, ground texture, clouds all scroll in sync
+3. **Narrator text** — should type out character-by-character. Click to skip.
+4. **Run `npm run playtest:short`** for automated 5-day screenshot capture.
 
-**Key files to understand:**
-- `src/phaser/effects/scenery-manager.ts` — 3-lane parallax, already scrolls during walk
-- `src/phaser/effects/sky-renderer.ts` — Sky gradients + ground texture (currently static)
-- `src/phaser/effects/terrain-layers.ts` — Procedural terrain silhouettes (seeded RNG)
-- `src/phaser/effects/cloud-layer.ts` — Already scrolls during walk
-- `src/phaser/scenes/TrailScene.ts` — Orchestrates all layers
+## Priority 1: Proper Horse Walk Frames
 
-**Approach suggestion:**
-- Generate a wide tileable background strip via Gemini Image Generation (matching the "hi-bit" aesthetic)
-- Use it as a scrolling ground texture in the sky-renderer or as a new parallax layer
-- Apply slow scroll during travel phase (synced with sceneryManager speed)
-- The 3-second travel delay (added this session) gives enough time for visible scrolling
+The walk row is currently idle frames repeated. This is a placeholder. Next session should:
 
-## Priority 2: Remaining Visual Polish (Tier C)
+1. Use the **pose-reference pipeline** (`sprite-forge/scripts/generate_walk_frames.py`) to generate proper walk frames
+2. Muybridge equine walk references are in `sprite-forge/reference/poses/`
+3. 8 frames needed per horse, each with a specific leg-position silhouette reference
+4. Use `--pro` flag for MODEL_PRO quality ($0.134/frame)
+5. Perry must approve frames before deployment (don't auto-deploy)
 
-Low-priority cosmetic sprite issues (from Gemini triage):
-- `companion_elias_base`: Stocky proportions vs player
-- `companion_luisa_base`: Object/animal in interact row frames
-- `cat_mouser`: Run row blobs (32px, barely visible)
-- `player_cowboy` walk frames 0-1: Duplicates (subtle stutter, patched)
-- **PixelLab experiment**: API key was returning 401 — try newer humanoid templates when key is refreshed
+**Key learning from Session 5:** Text prompts do NOT control leg positions — the model matches the reference image pose. Must provide per-frame pose-specific silhouette references.
 
-## Priority 3: Gameplay Features
+## Priority 2: Idle Animation from Row 5/6 Frames
 
-- Narrator API deployed to Vercel (dev proxy works, production needs deployment)
-- Rate limiting + integrityHash validation (TODO stubs in `api/narrator.ts`)
-- Camp activity system end-to-end verification
-- New content / encounters
+Perry identified good horse poses in Row 5 (Interact) and Row 6 (Injured) that could serve as idle frames. Next session:
+
+1. Show Perry the specific frames from these rows
+2. If approved, copy selected frames into Row 0 (Idle)
+3. Consider: should idle have subtle variation (grazing, leg lift, ear flick)?
+
+## Priority 3: Cowboy Walk Frames (Biped)
+
+The player_cowboy needs walk frames via the same pose-reference pipeline:
+- 64×64 biped frames
+- Need walking human silhouette references (Muybridge human plates, public domain 1887 on Wikimedia Commons)
+- 8 frames: contact, loading, midstance, terminal stance for each leg
+- Same pipeline as horses but different reference images
+
+## Priority 4: Content & Polish
+
+- **Test new encounters**: Play 10+ days to verify the 10 new encounter templates trigger correctly with proper Director voice selection
+- **Narrator deployment**: Moonshot/Anthropic API keys still needed in Vercel env vars (502 in production)
+- **Ambient audio**: System coded, 0 MP3s deployed. Need 7 biome-appropriate ambient loops.
+- **3 NEEDS_WORK sprites**: `companion_elias_base` (stocky), `companion_luisa_base` (interact row), `cat_mouser` (run blobs)
+
+---
 
 ## Technical Notes
 
-- **Dev server must be restarted** to pick up `vite.config.ts` changes (plugins don't hot-reload)
 - **Browser hard-refresh** (Ctrl+Shift+R) needed after sprite PNG changes
-- **Shell env** has `ANTHROPIC_API_KEY` set to Claude Code's key — the `.env.local` key is different. `test-narrator` script needs env override: `ANTHROPIC_API_KEY=<perry's key> npm run test:narrator`
-- **Narrator test:** `npm run test:narrator` validates all 3 providers
-- **Playtest sweep:** `npm run playtest:short` for quick 5-day check, requires dev server running
-- **Auto-play test** (29th Playwright) has pre-existing SkyRenderer crash in headless mode — non-blocking
+- **Dev server must be restarted** to pick up `vite.config.ts` changes
+- Shell env `ANTHROPIC_API_KEY` is Claude Code's key; `.env.local` has Perry's key
+- Auto-play test (29th Playwright) has pre-existing SkyRenderer crash in headless mode — non-blocking
+- `npm run playtest:short` requires dev server running
+
+## Sprite Backup Chain
+
+```
+horse_riding_base.png            ← Current (walk=idle, run=flipped)
+horse_riding_base_pre_row_fix.png  ← Before this session's row fixes
+horse_riding_base_pre_flip_fix.png ← Before Session 5 flip fixes
+horse_riding_base_color_backup.png ← Gemini color (pre-silhouette)
+horse_riding_base_pixellab_backup.png ← Original PixelLab generation
+```
+
+Same chain exists for `horse_draft_base`.
+
+## Key Files Modified This Session
+
+```
+src/phaser/sprites/CharacterSprite.ts  — Animation FSM + tween management (570 LOC)
+src/phaser/effects/terrain-layers.ts   — Parallax terrain scrolling (480 LOC)
+src/phaser/scenes/TrailScene.ts        — Scene update loop (700 LOC)
+src/data/encounter-templates.ts        — 27 templates + 81 outcomes (2900 LOC)
+src/ui/panels/TravelLog.tsx            — Typewriter narrator display (200 LOC)
+src/ui/layout/frontier-theme.css       — CSS keyframes + layout
+```
 
 ## Environment
 
 - Node 20+, Vite 6.x, TypeScript 5.x strict
 - Dev server: port 3000 (`npm run dev` from `files/frontier-scaffold/frontier/`)
+- 418/418 Vitest tests, TypeScript clean, ESLint clean
 - Anthropic API budget: ~$1.49 remaining (~180 narrator calls)
 - Gemini API: Free tier (500 calls/day)

@@ -203,6 +203,7 @@ export class TrailScene extends Phaser.Scene {
     this.sceneryManager.update(delta, isMoving, paceSpeed);
     this.groundScroll.update(delta, isMoving, paceSpeed);
     this.cloudLayer.update(delta, isMoving, paceSpeed);
+    this.terrainLayers.update(delta, isMoving, paceSpeed);
   }
 
   shutdown(): void {

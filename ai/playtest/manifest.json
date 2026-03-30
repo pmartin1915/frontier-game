@@ -1,0 +1,158 @@
+{
+  "timestamp": "2026-03-24T17:05:41.482Z",
+  "durationMs": 18859,
+  "daysPlayed": 2,
+  "daysRequested": 2,
+  "gameEndReason": null,
+  "viewport": {
+    "width": 960,
+    "height": 600
+  },
+  "consoleErrors": [],
+  "days": [
+    {
+      "day": 0,
+      "phase": "idle",
+      "biome": "crossTimbers",
+      "timeOfDay": "dawn",
+      "weather": "clear",
+      "waypoint": "Middle Concho",
+      "pace": "normal",
+      "milesTotal": 0,
+      "distanceToWaypoint": 130,
+      "player": {
+        "health": 100,
+        "morale": 65,
+        "fatigue": 0
+      },
+      "horse": {
+        "health": 100,
+        "fatigue": 0,
+        "lameness": false
+      },
+      "supplies": {
+        "water": 55,
+        "food": 45,
+        "coffee": 10,
+        "ammo": 20,
+        "medical": 5
+      },
+      "companions": [],
+      "campPet": null,
+      "narratorEntry": null,
+      "narratorVoice": null,
+      "narratorFallback": false,
+      "encounter": null,
+      "events": [],
+      "screenshots": [
+        "screenshots/day-00-start-full.png",
+        "screenshots/day-00-start-canvas.png"
+      ]
+    },
+    {
+      "day": 1,
+      "phase": "idle",
+      "biome": "crossTimbers",
+      "timeOfDay": "night",
+      "weather": "overcast",
+      "waypoint": "Middle Concho",
+      "pace": "hardPush",
+      "milesTotal": 41.1,
+      "distanceToWaypoint": 88.9,
+      "player": {
+        "health": 100,
+        "morale": 65,
+        "fatigue": 0
+      },
+      "horse": {
+        "health": 100,
+        "fatigue": 12,
+        "lameness": false
+      },
+      "supplies": {
+        "water": 50.6,
+        "food": 40.6,
+        "coffee": 9,
+        "ammo": 20,
+        "medical": 5
+      },
+      "companions": [],
+      "campPet": null,
+      "narratorEntry": "We made fair distance through the timber before noon and watered the horse at a clear branch. The afternoon passed without event. I made camp where the oaks thinned and a good grass flat opened south.",
+      "narratorVoice": "adams",
+      "narratorFallback": true,
+      "encounter": null,
+      "events": [],
+      "screenshots": [
+        "screenshots/day-01-trail.png",
+        "screenshots/day-01-full.png"
+      ]
+    },
+    {
+      "day": 2,
+      "phase": "idle",
+      "biome": "crossTimbers",
+      "timeOfDay": "night",
+      "weather": "clear",
+      "waypoint": "Middle Concho",
+      "pace": "hardPush",
+      "milesTotal": 77.1,
+      "distanceToWaypoint": 52.900000000000006,
+      "player": {
+        "health": 100,
+        "morale": 65,
+        "fatigue": 0
+      },
+      "horse": {
+        "health": 100,
+        "fatigue": 24,
+        "lameness": false
+      },
+      "supplies": {
+        "water": 46.2,
+        "food": 36.2,
+        "coffee": 8,
+        "ammo": 20,
+        "medical": 5
+      },
+      "companions": [],
+      "campPet": null,
+      "narratorEntry": "We made fair distance through the timber before noon and watered the horse at a clear branch. The afternoon passed without event. I made camp where the oaks thinned and a good grass flat opened south.",
+      "narratorVoice": "adams",
+      "narratorFallback": true,
+      "encounter": null,
+      "events": [],
+      "screenshots": [
+        "screenshots/day-02-trail.png",
+        "screenshots/day-02-full.png"
+      ]
+    }
+  ],
+  "statTrajectory": {
+    "health": [
+      100,
+      100,
+      100
+    ],
+    "morale": [
+      65,
+      65,
+      65
+    ],
+    "water": [
+      55,
+      50.6,
+      46.2
+    ],
+    "food": [
+      45,
+      40.6,
+      36.2
+    ],
+    "miles": [
+      0,
+      41.1,
+      77.1
+    ]
+  }
+}
