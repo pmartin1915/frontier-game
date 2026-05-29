@@ -76,8 +76,23 @@ function updateAmbianceVolume(): void {
 // ---- Public API ----
 
 /**
- * Initialize the audio system and attach reactive Zustand subscriptions.
- * Must be called once after the store is ready, in a browser context.
+ * Initializes the audio system and attaches reactive Zustand subscriptions.
+ * This function should be called once at application startup in a browser context.
+ * It is a no-op in non-browser environments (e.g., SSR, Vitest).
+ *
+ * The function performs the following setup:
+ * 1.  **AudioContext Unlocking**: Adds a one-time event listener for the first
+ *     user gesture (click, keydown, etc.) to unlock the browser's AudioContext,
+ *     complying with modern autoplay policies.
+ * 2.  **State Subscriptions**: Subscribes to various slices of the Zustand store
+ *     to reactively trigger audio events based on game state changes.
+ *     - Ambient music tracks change with biome, weather, time of day, and game phase (e.g., 'camp').
+ *     - Ambient volume adjusts based on user preferences (master/music volume, mute).
+ *     - Sound effects are played for key game events like encounters, waypoint arrivals,
+ *       entering camp, and game end (victory/death).
+ * 3.  **Initial State Sync**: Immediately evaluates the current game state to set the
+ *     initial ambient track, ensuring music plays on load rather than waiting for the
+ *     first state change.
  */
 export function initAudio(): void {
   if (typeof window === 'undefined') return; // guard for SSR / Vitest

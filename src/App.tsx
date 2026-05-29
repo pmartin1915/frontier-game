@@ -86,6 +86,22 @@ if (import.meta.env.DEV) {
   setInterval(pollCommands, 1500);
 }
 
+/**
+ * The root component of the Frontier application.
+ *
+ * This component is responsible for:
+ * - Setting up the main application container and error boundary.
+ * - Selecting and rendering the appropriate layout (`MobileLayout` or `DesktopLayout`)
+ *   based on the screen size.
+ * - Rendering all global UI overlays, such as modals, popups, and toasts,
+ *   which are controlled by the global Zustand store.
+ * - Initializing global systems like the audio engine and auto-player at the
+ *   module level, ensuring they are set up once when the app loads.
+ * - In development mode, it establishes a bridge with a Vite agent for
+ *   external game state monitoring and control.
+ *
+ * @returns {React.ReactElement} The main application element.
+ */
 export default function App() {
   const isMobile = useIsMobile();
 

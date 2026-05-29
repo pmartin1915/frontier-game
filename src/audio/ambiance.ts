@@ -59,12 +59,16 @@ function getHowl(track: AmbianceTrack): Howl {
 }
 
 /**
- * Crossfade to a new ambient track.
- * If the track is already active, just updates the volume.
+ * Crossfades from the current ambient track to a new one.
  *
- * @param track       Target AmbianceTrack
- * @param masterVol   Current master volume (0-1)
- * @param musicVol    Current music sub-volume (0-1)
+ * If the new track is the same as the active one, this function only updates
+ * the volume. Otherwise, it fades out the current track while simultaneously
+ * fading in the new one. It handles rapid switches by immediately stopping
+ * any track that is still in the process of fading out from a previous call.
+ *
+ * @param {AmbianceTrack} track - The target ambient track to play.
+ * @param {number} masterVol - The current master volume level (0-1).
+ * @param {number} musicVol - The current music-specific volume level (0-1).
  */
 export function switchAmbianceTrack(
   track: AmbianceTrack,
@@ -117,8 +121,12 @@ export function switchAmbianceTrack(
 }
 
 /**
- * Update the volume of the currently playing track without crossfading.
- * Call this when the user moves a volume slider.
+ * Updates the volume of the currently playing ambient track.
+ * This should be called when a volume slider is adjusted, as it changes
+ * the volume instantly without crossfading.
+ *
+ * @param {number} masterVol - The current master volume level (0-1).
+ * @param {number} musicVol - The current music-specific volume level (0-1).
  */
 export function setAmbianceVolume(masterVol: number, musicVol: number): void {
   if (!isBrowser()) return;
@@ -128,7 +136,12 @@ export function setAmbianceVolume(masterVol: number, musicVol: number): void {
   }
 }
 
-/** Mute or unmute the active ambient track without stopping it. */
+/**
+ * Mutes or unmutes the active ambient track.
+ * The track continues to play silently while muted.
+ *
+ * @param {boolean} muted - `true` to mute, `false` to unmute.
+ */
 export function muteAmbiance(muted: boolean): void {
   if (!isBrowser()) return;
   if (_activeTrack !== null) {
@@ -136,7 +149,11 @@ export function muteAmbiance(muted: boolean): void {
   }
 }
 
-/** Fade out and stop the active track (used on game over / victory). */
+/**
+ * Fades out and stops all ambient music.
+ * This is used for game end states (victory or game over). It also ensures
+ * any track currently fading out is stopped immediately.
+ */
 export function stopAmbiance(): void {
   if (!isBrowser() || _activeTrack === null) return;
   const h = _tracks.get(_activeTrack);
