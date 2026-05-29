@@ -53,6 +53,11 @@ export class CharacterSprite {
   private baseY = 0;
   private baseX = 0;
 
+  // Horse idle behavior — grazing, leg lift, weight shift
+  private idleBehaviorTimer?: Phaser.Time.TimerEvent;
+  private idleTween?: Phaser.Tweens.Tween;
+  private isHorseEntity = false;
+
   constructor(
     scene: Phaser.Scene,
     x: number,
@@ -93,13 +98,16 @@ export class CharacterSprite {
       }
     }
 
+    // Detect horse entities before playState so idle behavior starts immediately
+    this.isHorseEntity = config.key.includes('horse');
+    const isHorse = this.isHorseEntity;
+
     // Start in Idle
     this.playState(AnimationState.Idle);
 
     // Sub-pixel breathing — gentle scaleY oscillation prevents static "frozen" look.
     // Paused during Walk/Run to avoid conflict with stride stretch tween.
     // Horses breathe slower (3500ms) for a more natural large-animal cadence.
-    const isHorse = config.key.includes('horse');
     const breathDuration = isHorse ? 3500 : 2000;
 
     this.breathingTween = scene.tweens.add({
@@ -177,6 +185,9 @@ export class CharacterSprite {
     if (this.rimBreathingTween) this.rimBreathingTween.paused = !shouldBreathe;
     for (const t of this.accessoryBreathingTweens) t.paused = !shouldBreathe;
 
+    // Horse idle micro-animations: grazing, leg lift, weight shift
+    this.updateIdleBehavior(state);
+
     // Walk-bob: gentle vertical bounce to convey movement
     this.updateWalkBob(state);
 
@@ -253,17 +264,15 @@ export class CharacterSprite {
 
   /**
    * Start or stop walk motion tweens:
-   * 1. Vertical bob — scaled to entity size (horses bob more than humans)
-   * 2. Stride stretch — subtle scaleX oscillation simulating body compression
-   * 3. Head nod — x-position oscillation for horses (natural head motion)
+   * 1. Stride stretch — subtle scaleX oscillation simulating body compression
+   * 2. Head nod — x-position oscillation for horses (natural head motion)
+   * (Vertical bob removed — real walk frames now animate legs directly.)
    */
   private updateWalkBob(state: AnimationState): void {
     const isWalking = state === AnimationState.Walk || state === AnimationState.Run;
 
-    // Recreate tweens if switching between Walk↔Run (different bob timing)
-    if (isWalking && this.walkBobTween && state !== this.lastWalkState) {
-      this.walkBobTween?.remove();
-      this.walkBobTween = undefined;
+    // Recreate tweens if switching between Walk↔Run (different timing)
+    if (isWalking && this.strideTween && state !== this.lastWalkState) {
       this.strideTween?.remove();
       this.strideTween = undefined;
       this.rimStrideTween?.remove();
@@ -272,35 +281,17 @@ export class CharacterSprite {
       this.headNodTween = undefined;
     }
 
-    if (isWalking && !this.walkBobTween) {
+    if (isWalking && !this.strideTween) {
       this.lastWalkState = state;
       const isRunning = state === AnimationState.Run;
       const isHorse = this.config.key.includes('horse');
       const scale = SPRITE_SCALE[this.config.key] ?? 1.0;
-
-      // Bob scales with entity size: horses (80px) bob more than humans (64px)
-      const sizeFactor = this.config.frameHeight / 64;
-      const baseBob = isRunning ? 3 : 2;
-      const bobAmount = Math.round(baseBob * sizeFactor * (isHorse ? 1.5 : 1));
       const bobDuration = isRunning ? 200 : 350;
 
       // Collect all sprites that should move together
       const accSprites = Array.from(this.accessories.values()).map(a => a.sprite);
 
-      const yTargets: Phaser.GameObjects.Sprite[] = [this.sprite, ...accSprites];
-      if (this.rimSprite) yTargets.push(this.rimSprite);
-
-      // 1. Vertical bob
-      this.walkBobTween = this.sprite.scene.tweens.add({
-        targets: yTargets,
-        y: { from: this.baseY, to: this.baseY - bobAmount },
-        duration: bobDuration,
-        yoyo: true,
-        repeat: -1,
-        ease: 'Sine.easeInOut',
-      });
-
-      // 2. Stride stretch — body compresses/extends during gait
+      // Stride stretch — body compresses/extends during gait
       const stretchAmount = isHorse ? 0.03 : 0.02;
       this.strideTween = this.sprite.scene.tweens.add({
         targets: [this.sprite, ...accSprites],
@@ -339,9 +330,7 @@ export class CharacterSprite {
           ease: 'Sine.easeInOut',
         });
       }
-    } else if (!isWalking && (this.walkBobTween || this.strideTween || this.headNodTween)) {
-      this.walkBobTween?.remove();
-      this.walkBobTween = undefined;
+    } else if (!isWalking && (this.strideTween || this.headNodTween)) {
       this.strideTween?.remove();
       this.strideTween = undefined;
       this.rimStrideTween?.remove();
@@ -364,6 +353,158 @@ export class CharacterSprite {
         acc.syncPosition();
       }
       this.lastWalkState = undefined;
+    }
+  }
+
+  // ============================================================
+  // HORSE IDLE BEHAVIOR — grazing, leg lift, weight shift
+  // ============================================================
+
+  /**
+   * Start or stop periodic idle micro-animations for horses.
+   * When idle, horses cycle through naturalistic behaviors:
+   *   - Grazing: head dips down (y offset + slight forward lean)
+   *   - Leg lift: quick single-leg stamp (sharp y pop)
+   *   - Weight shift: slow lateral sway (x drift)
+   *   - Look around: brief pause then subtle turn
+   */
+  private updateIdleBehavior(state: AnimationState): void {
+    if (!this.isHorseEntity) return;
+
+    if (state === AnimationState.Idle) {
+      // Don't restart if already running
+      if (this.idleBehaviorTimer) return;
+      this.scheduleNextIdleBehavior();
+    } else {
+      this.stopIdleBehavior();
+    }
+  }
+
+  private scheduleNextIdleBehavior(): void {
+    if (!this.sprite.scene) return;
+
+    // Random delay 2-5s between behaviors
+    const delay = 2000 + Math.random() * 3000;
+    this.idleBehaviorTimer = this.sprite.scene.time.delayedCall(delay, () => {
+      if (this.currentState !== AnimationState.Idle || !this.sprite.scene) {
+        this.stopIdleBehavior();
+        return;
+      }
+      this.playRandomIdleBehavior();
+    });
+  }
+
+  private playRandomIdleBehavior(): void {
+    const roll = Math.random();
+    const scale = SPRITE_SCALE[this.config.key] ?? 1.0;
+
+    // Collect targets that move together
+    const accSprites = Array.from(this.accessories.values()).map(a => a.sprite);
+    const allTargets: Phaser.GameObjects.Sprite[] = [this.sprite, ...accSprites];
+    if (this.rimSprite) allTargets.push(this.rimSprite);
+
+    if (roll < 0.35) {
+      // GRAZE: head dips down 4-6px, holds, comes back up
+      const dipAmount = 4 + Math.random() * 2;
+      const holdTime = 800 + Math.random() * 1200;
+      this.idleTween = this.sprite.scene.tweens.add({
+        targets: allTargets,
+        y: this.baseY + dipAmount,
+        duration: 600,
+        ease: 'Sine.easeInOut',
+        yoyo: false,
+        onComplete: () => {
+          // Hold at grazing position, then rise
+          if (!this.sprite.scene) return;
+          this.idleTween = this.sprite.scene.time.delayedCall(holdTime, () => {
+            if (!this.sprite.scene || this.currentState !== AnimationState.Idle) return;
+            this.idleTween = this.sprite.scene.tweens.add({
+              targets: allTargets,
+              y: this.baseY,
+              duration: 500,
+              ease: 'Sine.easeInOut',
+              onComplete: () => this.scheduleNextIdleBehavior(),
+            }) as unknown as Phaser.Tweens.Tween;
+          }) as unknown as Phaser.Tweens.Tween;
+        },
+      });
+    } else if (roll < 0.55) {
+      // LEG LIFT/STAMP: quick upward pop then settle — like pawing ground
+      this.idleTween = this.sprite.scene.tweens.chain({
+        targets: allTargets,
+        tweens: [
+          { y: this.baseY - 3, duration: 120, ease: 'Back.easeOut' },
+          { y: this.baseY + 1, duration: 80, ease: 'Sine.easeIn' },
+          { y: this.baseY, duration: 200, ease: 'Sine.easeOut' },
+        ],
+        onComplete: () => this.scheduleNextIdleBehavior(),
+      }) as unknown as Phaser.Tweens.Tween;
+    } else if (roll < 0.75) {
+      // WEIGHT SHIFT: slow lateral sway 2-3px
+      const shiftAmount = 2 + Math.random();
+      const direction = Math.random() > 0.5 ? 1 : -1;
+      this.idleTween = this.sprite.scene.tweens.add({
+        targets: allTargets,
+        x: this.baseX + shiftAmount * direction,
+        duration: 1200,
+        ease: 'Sine.easeInOut',
+        yoyo: true,
+        onComplete: () => this.scheduleNextIdleBehavior(),
+      });
+    } else if (roll < 0.90) {
+      // TAIL SWISH: scaleX oscillation (body compression like a shiver/twitch)
+      this.idleTween = this.sprite.scene.tweens.chain({
+        targets: [this.sprite, ...accSprites],
+        tweens: [
+          { scaleX: scale * 1.02, duration: 150, ease: 'Sine.easeInOut' },
+          { scaleX: scale * 0.98, duration: 150, ease: 'Sine.easeInOut' },
+          { scaleX: scale, duration: 200, ease: 'Sine.easeOut' },
+        ],
+        onComplete: () => {
+          // Reset rim sprite scale too
+          if (this.rimSprite) this.rimSprite.scaleX = scale * RIM_SCALE_FACTOR;
+          this.scheduleNextIdleBehavior();
+        },
+      }) as unknown as Phaser.Tweens.Tween;
+    } else {
+      // LOOK AROUND: slight head turn (x nudge + pause)
+      const lookDir = Math.random() > 0.5 ? 3 : -3;
+      this.idleTween = this.sprite.scene.tweens.add({
+        targets: allTargets,
+        x: this.baseX + lookDir,
+        duration: 400,
+        ease: 'Sine.easeInOut',
+        yoyo: true,
+        hold: 600 + Math.random() * 800,
+        onComplete: () => this.scheduleNextIdleBehavior(),
+      });
+    }
+  }
+
+  private stopIdleBehavior(): void {
+    if (this.idleBehaviorTimer) {
+      this.idleBehaviorTimer.remove(false);
+      this.idleBehaviorTimer = undefined;
+    }
+    if (this.idleTween) {
+      if ('remove' in this.idleTween) {
+        (this.idleTween as Phaser.Tweens.Tween).remove();
+      }
+      this.idleTween = undefined;
+    }
+    // Snap back to base position
+    const scale = SPRITE_SCALE[this.config.key] ?? 1.0;
+    this.sprite.x = this.baseX;
+    this.sprite.y = this.baseY;
+    this.sprite.scaleX = scale;
+    if (this.rimSprite) {
+      this.rimSprite.x = this.baseX;
+      this.rimSprite.y = this.baseY;
+      this.rimSprite.scaleX = scale * RIM_SCALE_FACTOR;
+    }
+    for (const acc of this.accessories.values()) {
+      acc.sprite.scaleX = scale;
+      acc.syncPosition();
     }
   }
 
@@ -440,6 +581,7 @@ export class CharacterSprite {
   }
 
   destroy(): void {
+    this.stopIdleBehavior();
     this.breathingTween?.remove();
     this.rimBreathingTween?.remove();
     for (const t of this.accessoryBreathingTweens) t.remove();
@@ -561,8 +703,9 @@ class AccessoryOverlay {
     if (this.sprite.scene.anims.exists(key)) {
       this.sprite.play(key);
       const rowConfig = parentConfig.rows[state];
+      const safeMultiplier = Math.max(0.01, paceMultiplier);
       this.sprite.anims.msPerFrame =
-        1000 / (rowConfig.baseFrameRate * paceMultiplier);
+        1000 / (rowConfig.baseFrameRate * safeMultiplier);
     }
   }
 
