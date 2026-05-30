@@ -78,6 +78,12 @@ function updateAmbianceVolume(): void {
 /**
  * Initialize the audio system and attach reactive Zustand subscriptions.
  * Must be called once after the store is ready, in a browser context.
+ *
+ * This function sets up:
+ * - An AudioContext unlock mechanism on the first user gesture to comply with browser autoplay policies.
+ * - Subscriptions to the Zustand store to react to changes in game state (biome, weather, time of day,
+ *   daily cycle phase, pending encounters, waypoints, game end state) and audio preferences.
+ * - Triggers for ambient music crossfades and SFX playback based on these state changes.
  */
 export function initAudio(): void {
   if (typeof window === 'undefined') return; // guard for SSR / Vitest

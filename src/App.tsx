@@ -86,6 +86,16 @@ if (import.meta.env.DEV) {
   setInterval(pollCommands, 1500);
 }
 
+/**
+ * The main application component for the Frontier game.
+ *
+ * This component sets up the overall layout, handles mobile/desktop responsiveness,
+ * and renders all primary UI elements including the game's main layout,
+ * various overlays (decisions, bargains, camp, game end), and global error display.
+ *
+ * It also initializes core game systems like the auto-player and audio on module load.
+ * In development mode, it includes an agent bridge for external control and state monitoring.
+ */
 export default function App() {
   const isMobile = useIsMobile();
 
@@ -106,6 +116,9 @@ export default function App() {
   );
 }
 
+/**
+ * CSS styles for the main application container.
+ */
 const styles: Record<string, React.CSSProperties> = {
   container: {
     width: '100vw',
