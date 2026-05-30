@@ -22,7 +22,22 @@ initAutoPlayer();
 // Initialize the audio system (subscriptions + Howler context).
 initAudio();
 
-// Dev-only: push game state to Vite agent bridge on every phase change.
+/**
+ * @module App
+ *
+ * This module contains the main application component for the Frontier game.
+ * It sets up global services like the auto-player and audio system,
+ * and renders the appropriate UI layout (desktop or mobile) along with all
+ * necessary game overlays and screens.
+ *
+ * In development mode, it also includes an agent bridge for external control
+ * and state monitoring, facilitating automated testing and AI development.
+ */
+
+// Dev-only: Agent bridge for external control and state monitoring.
+// This block is active only in development environments (Vite's import.meta.env.DEV).
+// It subscribes to game state changes and pushes snapshots to a local API endpoint,
+// and periodically polls for commands to control the game programmatically.
 if (import.meta.env.DEV) {
   store.subscribe(
     (s) => s.dailyCyclePhase,
@@ -86,6 +101,16 @@ if (import.meta.env.DEV) {
   setInterval(pollCommands, 1500);
 }
 
+/**
+ * The main application component for the Frontier game.
+ *
+ * This component determines whether to render a mobile or desktop layout
+ * based on the `useIsMobile` hook, and renders all necessary game overlays
+ * and screens. It also wraps the entire application in an `ErrorBoundary`
+ * to catch and display UI errors gracefully.
+ *
+ * @returns {JSX.Element} The root application UI.
+ */
 export default function App() {
   const isMobile = useIsMobile();
 
