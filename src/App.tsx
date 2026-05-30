@@ -86,6 +86,17 @@ if (import.meta.env.DEV) {
   setInterval(pollCommands, 1500);
 }
 
+/**
+ * The main application component for the Frontier game.
+ *
+ * This component sets up the overall layout (desktop or mobile) and renders
+ * all necessary UI overlays and global components such as error boundaries
+ * and toasts. It also initializes core game systems like the auto-player
+ * and audio.
+ *
+ * In development mode, it includes an agent bridge for external control
+ * and state monitoring.
+ */
 export default function App() {
   const isMobile = useIsMobile();
 

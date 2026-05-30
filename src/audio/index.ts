@@ -77,7 +77,9 @@ function updateAmbianceVolume(): void {
 
 /**
  * Initialize the audio system and attach reactive Zustand subscriptions.
- * Must be called once after the store is ready, in a browser context.
+ * This function must be called once after the store is ready, in a browser context.
+ * It sets up event listeners to unlock the Web Audio API on the first user gesture
+ * and subscribes to various store changes to manage ambient music and sound effects.
  */
 export function initAudio(): void {
   if (typeof window === 'undefined') return; // guard for SSR / Vitest
