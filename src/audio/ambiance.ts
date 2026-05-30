@@ -62,9 +62,9 @@ function getHowl(track: AmbianceTrack): Howl {
  * Crossfade to a new ambient track.
  * If the track is already active, just updates the volume.
  *
- * @param track       Target AmbianceTrack
- * @param masterVol   Current master volume (0-1)
- * @param musicVol    Current music sub-volume (0-1)
+ * @param track       Target AmbianceTrack to switch to.
+ * @param masterVol   Current master volume (0-1).
+ * @param musicVol    Current music sub-volume (0-1).
  */
 export function switchAmbianceTrack(
   track: AmbianceTrack,
@@ -119,6 +119,9 @@ export function switchAmbianceTrack(
 /**
  * Update the volume of the currently playing track without crossfading.
  * Call this when the user moves a volume slider.
+ *
+ * @param masterVol   Current master volume (0-1).
+ * @param musicVol    Current music sub-volume (0-1).
  */
 export function setAmbianceVolume(masterVol: number, musicVol: number): void {
   if (!isBrowser()) return;
@@ -128,7 +131,11 @@ export function setAmbianceVolume(masterVol: number, musicVol: number): void {
   }
 }
 
-/** Mute or unmute the active ambient track without stopping it. */
+/**
+ * Mute or unmute the active ambient track without stopping it.
+ *
+ * @param muted True to mute, false to unmute.
+ */
 export function muteAmbiance(muted: boolean): void {
   if (!isBrowser()) return;
   if (_activeTrack !== null) {
@@ -136,7 +143,9 @@ export function muteAmbiance(muted: boolean): void {
   }
 }
 
-/** Fade out and stop the active track (used on game over / victory). */
+/**
+ * Fade out and stop the active track (used on game over / victory).
+ */
 export function stopAmbiance(): void {
   if (!isBrowser() || _activeTrack === null) return;
   const h = _tracks.get(_activeTrack);
