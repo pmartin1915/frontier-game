@@ -10,6 +10,8 @@
  * Ambient tracks switch on biome/weather/phase changes.
  * SFX fire on encounter trigger, waypoint arrival, camp start, and game end.
  * UI-driven SFX (button clicks, confirm) are fired via store.triggerSfx().
+ *
+ * @date 2026-05-31
  */
 
 import { Biome, Weather, TimeOfDay } from '@/types/game-state';
@@ -76,8 +78,21 @@ function updateAmbianceVolume(): void {
 // ---- Public API ----
 
 /**
- * Initialize the audio system and attach reactive Zustand subscriptions.
- * Must be called once after the store is ready, in a browser context.
+ * Initializes the audio system and attaches reactive Zustand subscriptions.
+ *
+ * This function must be called once at application startup, specifically within
+ * a browser context. It sets up:
+ * - An AudioContext unlock mechanism to comply with browser autoplay policies,
+ *   triggered by the first user gesture (click, keydown, touchstart).
+ * - Subscriptions to the Zustand store to reactively update ambient music
+ *   based on game state changes (biome, weather, time of day, daily cycle phase).
+ * - Subscriptions to audio preferences (master volume, music volume, mute state)
+ *   to dynamically adjust ambient track playback.
+ * - Subscriptions to trigger sound effects (SFX) for key game events such as
+ *   encounter triggers, waypoint arrivals, entering camp, and game end states.
+ *
+ * Upon initialization, it immediately evaluates the current game state to start
+ * ambient music without waiting for the first state change.
  */
 export function initAudio(): void {
   if (typeof window === 'undefined') return; // guard for SSR / Vitest

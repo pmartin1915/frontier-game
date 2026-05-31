@@ -1,3 +1,10 @@
+/**
+ * @fileoverview Main application entry point for the Frontier game.
+ * Initializes core systems, sets up development-only agent bridge,
+ * and renders the main UI layout and overlays.
+ *
+ * @date 2026-05-31
+ */
 import './ui/layout/frontier-theme.css';
 
 import DecisionOverlay from './ui/overlays/DecisionOverlay';
@@ -86,6 +93,18 @@ if (import.meta.env.DEV) {
   setInterval(pollCommands, 1500);
 }
 
+/**
+ * The root component of the Frontier application.
+ *
+ * This component sets up the main application layout, conditionally rendering
+ * a desktop or mobile layout based on the `useIsMobile` hook. It also renders
+ * all global UI overlays and components that are present across different
+ * game states (e.g., MorningBriefing, DecisionOverlay, ErrorToast).
+ *
+ * It is wrapped in an `ErrorBoundary` to catch and display UI errors gracefully.
+ *
+ * @returns {JSX.Element} The main application UI.
+ */
 export default function App() {
   const isMobile = useIsMobile();
 
