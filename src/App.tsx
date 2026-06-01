@@ -23,6 +23,8 @@ initAutoPlayer();
 initAudio();
 
 // Dev-only: push game state to Vite agent bridge on every phase change.
+// This allows external agents (e.g., AI, testing tools) to observe and
+// interact with the game state during development.
 if (import.meta.env.DEV) {
   store.subscribe(
     (s) => s.dailyCyclePhase,
@@ -86,6 +88,19 @@ if (import.meta.env.DEV) {
   setInterval(pollCommands, 1500);
 }
 
+/**
+ * The main application component for the Frontier game.
+ *
+ * This component sets up the global layout, initializes core game systems
+ * (audio, auto-player), and renders all primary UI overlays and screens.
+ * It dynamically switches between mobile and desktop layouts based on the
+ * `useIsMobile` hook.
+ *
+ * In development mode, it also includes an agent bridge for external tools
+ * to observe and control game state.
+ *
+ * @returns {JSX.Element} The root React element of the application.
+ */
 export default function App() {
   const isMobile = useIsMobile();
 
