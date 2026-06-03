@@ -1,3 +1,9 @@
+/**
+ * @fileoverview Main application component for the Frontier game.
+ * @module App
+ * @date 2026-06-03
+ */
+
 import './ui/layout/frontier-theme.css';
 
 import DecisionOverlay from './ui/overlays/DecisionOverlay';
@@ -99,6 +105,7 @@ if (import.meta.env.DEV) {
  * In development mode, it also includes an agent bridge for external tools
  * to observe and control game state.
  *
+ * @function App
  * @returns {JSX.Element} The root React element of the application.
  */
 export default function App() {
