@@ -20,7 +20,23 @@ import { AmbianceTrack } from '@/types/audio';
 
 const CROSSFADE_MS = 2500;
 
-// Lazy track instances — created on first access to avoid loading everything upfront.
+/**
+ * Available ambient tracks in the game.
+ * These correspond to audio files in public/audio/ambient/.
+ * @typedef {string} AmbianceTrack
+ * @example
+ * 'plains-day'      // Daytime on the plains
+ * 'plains-night'    // Nighttime on the plains
+ * 'mountains-storm' // Storm in the mountains
+ * 'desert-wind'     // Wind in the desert
+ * 'forest-rain'     // Rain in the forest
+ * 'campfire'        // Campfire ambiance
+ */
+
+/**
+ * Lazy track instances — created on first access to avoid loading everything upfront.
+ * @type {Map<AmbianceTrack, Howl>}
+ */
 const _tracks = new Map<AmbianceTrack, Howl>();
 
 let _activeTrack: AmbianceTrack | null = null;
@@ -30,10 +46,19 @@ let _targetVolume = 0;
 // immediately if a new switch arrives before the fade completes.
 let _fadingOutTrack: { howl: Howl; timer: ReturnType<typeof setTimeout> } | null = null;
 
+/**
+ * Checks if the current environment supports audio playback.
+ * @returns {boolean} True if running in a browser environment with audio support.
+ */
 function isBrowser(): boolean {
   return typeof window !== 'undefined' && typeof window.AudioContext !== 'undefined';
 }
 
+/**
+ * Creates a Howl instance for the specified track.
+ * @param {AmbianceTrack} track - The track name (without file extension).
+ * @returns {Howl} A Howl instance configured for ambient playback.
+ */
 function makeHowl(track: AmbianceTrack): Howl {
   return new Howl({
     src: [
@@ -51,6 +76,11 @@ function makeHowl(track: AmbianceTrack): Howl {
   });
 }
 
+/**
+ * Gets or creates a Howl instance for the specified track.
+ * @param {AmbianceTrack} track - The track to retrieve or create.
+ * @returns {Howl} The Howl instance for the track.
+ */
 function getHowl(track: AmbianceTrack): Howl {
   if (!_tracks.has(track)) {
     _tracks.set(track, makeHowl(track));
@@ -62,9 +92,9 @@ function getHowl(track: AmbianceTrack): Howl {
  * Crossfade to a new ambient track.
  * If the track is already active, just updates the volume.
  *
- * @param track       Target AmbianceTrack to switch to.
- * @param masterVol   Current master volume (0-1).
- * @param musicVol    Current music sub-volume (0-1).
+ * @param {AmbianceTrack} track - Target AmbianceTrack to switch to.
+ * @param {number} masterVol - Current master volume (0-1).
+ * @param {number} musicVol - Current music sub-volume (0-1).
  */
 export function switchAmbianceTrack(
   track: AmbianceTrack,
@@ -120,8 +150,8 @@ export function switchAmbianceTrack(
  * Update the volume of the currently playing track without crossfading.
  * Call this when the user moves a volume slider or when master/music volume changes.
  *
- * @param masterVol   Current master volume (0-1).
- * @param musicVol    Current music sub-volume (0-1).
+ * @param {number} masterVol - Current master volume (0-1).
+ * @param {number} musicVol - Current music sub-volume (0-1).
  */
 export function setAmbianceVolume(masterVol: number, musicVol: number): void {
   if (!isBrowser()) return;
@@ -134,7 +164,7 @@ export function setAmbianceVolume(masterVol: number, musicVol: number): void {
 /**
  * Mute or unmute the active ambient track without stopping it.
  *
- * @param muted   True to mute, false to unmute.
+ * @param {boolean} muted - True to mute, false to unmute.
  */
 export function muteAmbiance(muted: boolean): void {
   if (!isBrowser()) return;
