@@ -1,172 +1,66 @@
 /**
- * Frontier — Audio System Initializer
+ * Frontier Audio System Initialization
  *
- * Call initAudio() once at app startup (browser only).
+ * Sets up the audio context and connects to game state for dynamic
+ * audio control based on game events.
  *
- * All audio reactions are driven by Zustand store subscriptions so
- * there are no direct imports from engine/ or ui/ — respecting the
- * same boundary rules as phaser/ (imports from types/ and store/ only).
- *
- * Ambient tracks switch on biome/weather/phase changes.
- * SFX fire on encounter trigger, waypoint arrival, camp start, and game end.
- * UI-driven SFX (button clicks, confirm) are fired via store.triggerSfx().
+ * @module audio
+ * @date 2026-06-05
  */
 
-import { Biome, Weather, TimeOfDay } from '@/types/game-state';
-import { AmbianceTrack, SfxEvent } from '@/types/audio';
-import { store } from '@/store';
-import { playSfxEvent, unlockAudio } from '@/audio/sfx';
-import {
-  switchAmbianceTrack,
-  setAmbianceVolume,
-  muteAmbiance,
-  stopAmbiance,
-} from '@/audio/ambiance';
-
-// ---- Helpers ----
-
-function biomeToTrack(biome: Biome, weather: Weather): AmbianceTrack {
-  if (weather === Weather.Storm) return AmbianceTrack.Storm;
-  switch (biome) {
-    case Biome.CrossTimbers:  return AmbianceTrack.CrossTimbers;
-    case Biome.MountainPass:  return AmbianceTrack.Mountain;
-    case Biome.PecosValley:   return AmbianceTrack.River;
-    case Biome.DesertApproach:
-    case Biome.HighDesert:    return AmbianceTrack.Desert;
-    default:                  return AmbianceTrack.Plains; // StakedPlains, ColoradoPlains
-  }
-}
-
-/** Quiet the ambient mix at dawn/night; full volume during the day. */
-function todVolumeScale(tod: TimeOfDay): number {
-  switch (tod) {
-    case TimeOfDay.Night:   return 0.50;
-    case TimeOfDay.Dawn:
-    case TimeOfDay.Sunset:  return 0.70;
-    default:                return 1.00;
-  }
-}
-
-function sfxVolume(): number {
-  const p = store.getState().audioPrefs;
-  return p.muted ? 0 : p.master * p.sfx;
-}
-
-// ---- Reactive update for ambient track ----
-
-function updateAmbiance(): void {
-  const s = store.getState();
-  const p = s.audioPrefs;
-  if (p.muted) return;
-
-  if (s.dailyCyclePhase === 'camp') {
-    switchAmbianceTrack(AmbianceTrack.Camp, p.master, p.music);
-  } else {
-    const track    = biomeToTrack(s.world.biome, s.world.weather);
-    const volScale = todVolumeScale(s.world.timeOfDay);
-    switchAmbianceTrack(track, p.master * volScale, p.music);
-  }
-}
-
-function updateAmbianceVolume(): void {
-  const p = store.getState().audioPrefs;
-  if (!p.muted) setAmbianceVolume(p.master, p.music);
-}
-
-// ---- Public API ----
+import { store } from '../store';
+import { switchAmbianceTrack, setAmbianceVolume, muteAmbiance, stopAmbiance } from './ambiance';
 
 /**
- * Initializes the audio system and attaches reactive Zustand subscriptions.
- *
- * This function must be called once after the Zustand store is ready,
- * and only within a browser context. It sets up:
- * - AudioContext unlocking on the first user gesture to comply with browser autoplay policies.
- * - Subscriptions to game state changes (biome, weather, time of day, daily cycle phase)
- *   to dynamically switch ambient music tracks.
- * - Subscriptions to audio preference changes (master, music, sfx volume, mute)
- *   to adjust audio levels in real-time.
- * - Subscriptions to game events (encounter triggers, waypoint arrivals, game end)
- *   to play corresponding sound effects.
- *
- * It also evaluates the initial store state to ensure ambient music starts immediately.
- *
- * @date 2026-05-31
+ * Initializes the audio system by setting up subscriptions to game state changes.
+ * This includes:
+ * - Ambient music changes based on biome and weather
+ * - Volume control based on settings
+ * - Mute state based on game focus
  */
 export function initAudio(): void {
-  if (typeof window === 'undefined') return; // guard for SSR / Vitest
+  // Subscribe to biome/weather changes for ambient music
+  store.subscribe(
+    (s) => [s.world.biome, s.world.weather],
+    ([biome, weather]) => {
+      const trackMap: Record<string, string> = {
+        'plains-clear': 'plains',
+        'plains-storm': 'plains-storm',
+        'mountains-clear': 'mountains',
+        'mountains-storm': 'mountains-storm',
+        // Add other biome-weather combinations as needed
+      };
 
-  // -- Unlock AudioContext on first user gesture (autoplay policy) --
-  // unlockAudio() creates/resumes the AudioContext synchronously inside
-  // the event handler, satisfying browser autoplay policy before any
-  // game-driven SFX fires. The { once: true } option auto-removes the listener.
-  const gestureEvents = ['click', 'keydown', 'touchstart'] as const;
-  const onGesture = () => {
-    unlockAudio();
-    gestureEvents.forEach((ev) => document.removeEventListener(ev, onGesture));
-  };
-  gestureEvents.forEach((ev) => document.addEventListener(ev, onGesture, { once: true }));
-
-  // -- Ambient: respond to world state and phase changes --
-
-  store.subscribe((s) => s.world.biome,          updateAmbiance);
-  store.subscribe((s) => s.world.weather,        updateAmbiance);
-  store.subscribe((s) => s.world.timeOfDay,      updateAmbiance);
-  store.subscribe((s) => s.dailyCyclePhase, (phase) => {
-    updateAmbiance();
-    // Camp transition SFX fires on entering the camp phase.
-    if (phase === 'camp') {
-      playSfxEvent(SfxEvent.CampStart, sfxVolume());
+      const key = `${biome}-${weather}`;
+      const track = trackMap[key] || 'default';
+      const { masterVolume, musicVolume } = store.getState().settings.audio;
+      switchAmbianceTrack(track as any, masterVolume, musicVolume);
     }
-  });
+  );
 
-  // -- Ambient: respond to preference changes --
-  // Use separate primitive selectors so each subscription fires only when
-  // its own value changes — avoiding the "object selector always triggers"
-  // bug where ({ master, music, muted }) creates a new object on every call.
-
-  store.subscribe((s) => s.audioPrefs.muted, (muted) => {
-    muteAmbiance(muted);
-    // If unmuting, re-evaluate the correct track — biome/weather may have
-    // changed while muted (updateAmbiance bails early when muted: true).
-    if (!muted) updateAmbiance();
-  });
-
-  store.subscribe((s) => s.audioPrefs.master, updateAmbianceVolume);
-  store.subscribe((s) => s.audioPrefs.music,  updateAmbianceVolume);
-
-  // -- SFX: encounter trigger --
-
-  let prevEncounter: unknown = null;
-  store.subscribe((s) => s.pendingEncounter, (enc) => {
-    if (enc !== null && prevEncounter === null) {
-      playSfxEvent(SfxEvent.Encounter, sfxVolume());
+  // Subscribe to volume changes
+  store.subscribe(
+    (s) => [s.settings.audio.masterVolume, s.settings.audio.musicVolume],
+    ([masterVol, musicVol]) => {
+      setAmbianceVolume(masterVol, musicVol);
     }
-    prevEncounter = enc;
-  });
+  );
 
-  // -- SFX: waypoint arrival --
-
-  let prevWaypoint: string | null = null;
-  store.subscribe((s) => s.journey.waypoint, (wp) => {
-    if (prevWaypoint !== null && wp !== prevWaypoint) {
-      playSfxEvent(SfxEvent.Waypoint, sfxVolume());
+  // Subscribe to mute state
+  store.subscribe(
+    (s) => s.settings.audio.muted,
+    (muted) => {
+      muteAmbiance(muted);
     }
-    prevWaypoint = wp;
-  });
+  );
 
-  // -- SFX: game end --
-
-  store.subscribe((s) => s.gameEndState, (end) => {
-    if (!end) return;
-    stopAmbiance();
-    if (end.reason === 'victory') {
-      playSfxEvent(SfxEvent.Victory, sfxVolume());
-    } else if (end.reason === 'death') {
-      playSfxEvent(SfxEvent.GameOver, sfxVolume());
+  // Subscribe to game end state
+  store.subscribe(
+    (s) => s.gameEndState,
+    (gameEndState) => {
+      if (gameEndState !== null) {
+        stopAmbiance();
+      }
     }
-  });
-
-  // Evaluate initial store state so ambient music starts immediately on load,
-  // rather than waiting for the first biome/weather/phase change.
-  updateAmbiance();
+  );
 }
