@@ -34,6 +34,12 @@ export interface HealthInput {
   horseInjuryRisk: boolean;
   temperature: number;
   discretionaryAction: DiscretionaryAction;
+  /**
+   * Aggregate medicine bonus from active companions (e.g. Vega). Scales up
+   * passive health recovery — "faster recovery times". Defaults to 0 (no
+   * companion healer). Source: CompanionSkillBonuses.medicineBonus.
+   */
+  medicineBonus?: number;
   /** Injectable RNG for testing. Defaults to Math.random. */
   rng?: () => number;
 }
@@ -68,6 +74,8 @@ const CRISIS_HEALTH_THRESHOLD = 40;
 const CRISIS_RECOVERY_PER_POINT = 0.05;
 /** Partial recovery when only ONE of water/food is depleted (not both). */
 const PARTIAL_DEPLETION_RECOVERY = 0;
+/** Extra passive recovery per point of companion medicine bonus (e.g., at bonus 15: +0.75). */
+const MEDICINE_RECOVERY_PER_BONUS = 0.05;
 
 // ============================================================
 // CALCULATION
@@ -166,6 +174,8 @@ export function calculateHealth(input: HealthInput): HealthResult {
     if (currentHealth < CRISIS_HEALTH_THRESHOLD) {
       recovery += (CRISIS_HEALTH_THRESHOLD - currentHealth) * CRISIS_RECOVERY_PER_POINT;
     }
+    // A companion healer (Vega) speeds recovery on top of the base rate.
+    recovery += (input.medicineBonus ?? 0) * MEDICINE_RECOVERY_PER_BONUS;
     playerHealthDelta += recovery;
   } else if (!input.waterDepleted || !input.foodDepleted) {
     // Partial recovery: one resource available — breaks the binary cliff

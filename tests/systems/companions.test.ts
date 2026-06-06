@@ -5,9 +5,13 @@ import {
   getCompanionSkillBonus,
 } from '@/systems/companions';
 import type { CompanionDayInput } from '@/systems/companions';
+import { calculateMovement } from '@/systems/movement';
+import { calculateHealth } from '@/systems/health';
+import { calculateSupplyConsumption } from '@/systems/supplies';
 import type { CompanionInstance } from '@/types/companions';
 import { CompanionId, CompanionSkill } from '@/types/companions';
-import { Pace } from '@/types/game-state';
+import { Pace, Terrain, Weather, DiscretionaryAction } from '@/types/game-state';
+import type { PlayerState, HorseState, Supplies } from '@/types/game-state';
 
 // ============================================================
 // BASE TEST INPUTS
@@ -357,5 +361,135 @@ describe('getCompanionSkillBonus', () => {
   it('returns 0 for empty companions', () => {
     const bonus = getCompanionSkillBonus([], CompanionSkill.Navigation);
     expect(bonus).toBe(0);
+  });
+});
+
+// ============================================================
+// Skill bonuses wired into the Game-Logic calculators
+// (ROADMAP Phase 1, item 1). The bonuses already existed; these
+// verify they now actually change movement / health / supplies.
+// ============================================================
+
+describe('companion skill bonuses feed the calculators', () => {
+  // rng: call 1 = base distance, call 2 = getting-lost roll, call 3 = loss fraction.
+  // navigationSkill 30 → base lost chance = 0.15 * (1 - 0.30) = 0.105.
+  // The roll 0.09 lands BELOW that, so without a navigator the party gets lost.
+  const lostRoll = () => {
+    let n = 0;
+    return () => {
+      n++;
+      if (n === 2) return 0.09; // the getting-lost check
+      return 0.5;
+    };
+  };
+  const MOVEMENT_BASE = {
+    pace: Pace.Normal,
+    terrain: Terrain.Prairie,
+    nightTravel: true,
+    horseFatigue: 0,
+    horseLameness: false,
+    tackCondition: 100,
+    navigationSkill: 30,
+    distanceToWaypoint: 200,
+  };
+
+  it('Coe (navigation) reduces getting-lost chance on night travel', () => {
+    const coe: CompanionInstance = { ...BASE_COMPANION, id: CompanionId.EliasCoe, loyalty: 50 };
+    const navBonus = getCompanionSkillBonus([coe], CompanionSkill.Navigation);
+    expect(navBonus).toBe(15); // 10 + floor(50/10)
+
+    // Without the navigator: roll 0.09 < 0.105 → lost.
+    const without = calculateMovement({ ...MOVEMENT_BASE, rng: lostRoll() });
+    expect(without.gotLost).toBe(true);
+
+    // With Coe: effective navigation 30+15=45 → chance 0.15 * 0.55 = 0.0825.
+    // The same 0.09 roll now lands ABOVE the lower chance → not lost.
+    const withCoe = calculateMovement({
+      ...MOVEMENT_BASE,
+      companionNavigationBonus: navBonus,
+      rng: lostRoll(),
+    });
+    expect(withCoe.gotLost).toBe(false);
+  });
+
+  it('Vega (medicine) speeds passive health recovery', () => {
+    const player: PlayerState = {
+      name: 'Martin',
+      health: 100,
+      conditions: [],
+      fatigue: 20,
+      morale: 65,
+      skills: { survival: 40, navigation: 30, combat: 35, barter: 25 },
+      equipment: [],
+    };
+    const horse: HorseState = {
+      name: 'Horse',
+      health: 100,
+      fatigue: 20,
+      lameness: false,
+      thirst: 20,
+      hunger: 20,
+      tackCondition: 100,
+    };
+    const healthBase = {
+      player,
+      horse,
+      pace: Pace.Normal,
+      waterDepleted: false,
+      foodDepleted: false,
+      nightTravel: false,
+      horseInjuryRisk: false,
+      temperature: 78,
+      discretionaryAction: DiscretionaryAction.None,
+      rng: () => 0.99,
+    };
+
+    const vega: CompanionInstance = { ...BASE_COMPANION, id: CompanionId.LuisaVega, loyalty: 50 };
+    const medBonus = getCompanionSkillBonus([vega], CompanionSkill.Medicine);
+    expect(medBonus).toBe(15);
+
+    const without = calculateHealth(healthBase);
+    const withVega = calculateHealth({ ...healthBase, medicineBonus: medBonus });
+
+    // Base passive recovery is +1; Vega adds 15 * 0.05 = +0.75 → +1.75.
+    expect(without.playerHealthDelta).toBeCloseTo(1);
+    expect(withVega.playerHealthDelta).toBeCloseTo(1.75);
+    expect(withVega.playerHealthDelta).toBeGreaterThan(without.playerHealthDelta);
+  });
+
+  it('Blanchard (hunting) raises the yield of a successful hunt', () => {
+    const supplies: Supplies = {
+      water: 40,
+      food: 35,
+      coffee: 10,
+      medical: 5,
+      repair: 5,
+      ammo: 20,
+      tradeGoods: 15,
+      funds: 50,
+    };
+    const supplyBase = {
+      pace: Pace.Normal,
+      nightTravel: false,
+      weather: Weather.Clear,
+      temperature: 78,
+      discretionaryAction: DiscretionaryAction.Hunt,
+      currentSupplies: supplies,
+      companionCount: 0,
+      survivalSkill: 40, // huntChance = 0.5 + 40/200 = 0.7
+      rng: () => 0.5, // 0.5 < 0.7 → hunt succeeds
+    };
+
+    const blanchard: CompanionInstance = { ...BASE_COMPANION, id: CompanionId.TomBlanchard, loyalty: 50 };
+    const huntBonus = getCompanionSkillBonus([blanchard], CompanionSkill.Hunting);
+    expect(huntBonus).toBe(15);
+
+    const without = calculateSupplyConsumption(supplyBase);
+    const withBlanchard = calculateSupplyConsumption({ ...supplyBase, huntingBonus: huntBonus });
+
+    // Base hunt yield is +4; Blanchard adds round(15 * 0.1) = +2 more food.
+    const yieldDelta = (withBlanchard.deltas.food ?? 0) - (without.deltas.food ?? 0);
+    expect(yieldDelta).toBeCloseTo(2);
+    expect(withBlanchard.deltas.food ?? 0).toBeGreaterThan(without.deltas.food ?? 0);
   });
 });
