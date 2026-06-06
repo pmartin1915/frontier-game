@@ -20,20 +20,55 @@ import { AmbianceTrack } from '@/types/audio';
 
 const CROSSFADE_MS = 2500;
 
-// Lazy track instances — created on first access to avoid loading everything upfront.
+/**
+ * Available ambient tracks in the game.
+ * These correspond to audio files in public/audio/ambient/
+ * @typedef {Object} AmbianceTrack
+ * @property {string} PlainsDay - Daytime plains biome
+ * @property {string} PlainsNight - Nighttime plains biome
+ * @property {string} MountainsDay - Daytime mountains biome
+ * @property {string} MountainsNight - Nighttime mountains biome
+ * @property {string} ForestDay - Daytime forest biome
+ * @property {string} ForestNight - Nighttime forest biome
+ * @property {string} DesertDay - Daytime desert biome
+ * @property {string} DesertNight - Nighttime desert biome
+ * @property {string} Storm - Stormy weather overlay
+ * @property {string} Campfire - Campfire ambiance
+ * @property {string} Victory - Victory theme
+ * @property {string} Defeat - Defeat theme
+ */
+
+/**
+ * Lazy track instances — created on first access to avoid loading everything upfront.
+ * @type {Map<AmbianceTrack, Howl>}
+ */
 const _tracks = new Map<AmbianceTrack, Howl>();
 
+/** Currently playing track */
 let _activeTrack: AmbianceTrack | null = null;
+/** Target volume level (0-1) */
 let _targetVolume = 0;
 
-// Tracks a Howl that is currently fading out so we can cancel and stop it
-// immediately if a new switch arrives before the fade completes.
+/**
+ * Tracks a Howl that is currently fading out so we can cancel and stop it
+ * immediately if a new switch arrives before the fade completes.
+ * @type {Object|null}
+ */
 let _fadingOutTrack: { howl: Howl; timer: ReturnType<typeof setTimeout> } | null = null;
 
+/**
+ * Checks if the current environment supports audio (browser with AudioContext)
+ * @returns {boolean} True if in a browser environment with audio support
+ */
 function isBrowser(): boolean {
   return typeof window !== 'undefined' && typeof window.AudioContext !== 'undefined';
 }
 
+/**
+ * Creates a Howl instance for the specified track
+ * @param {AmbianceTrack} track - Track name to create
+ * @returns {Howl} Howl instance for the track
+ */
 function makeHowl(track: AmbianceTrack): Howl {
   return new Howl({
     src: [
@@ -51,6 +86,11 @@ function makeHowl(track: AmbianceTrack): Howl {
   });
 }
 
+/**
+ * Gets or creates a Howl instance for the specified track
+ * @param {AmbianceTrack} track - Track name to get
+ * @returns {Howl} Howl instance for the track
+ */
 function getHowl(track: AmbianceTrack): Howl {
   if (!_tracks.has(track)) {
     _tracks.set(track, makeHowl(track));
@@ -62,9 +102,9 @@ function getHowl(track: AmbianceTrack): Howl {
  * Crossfade to a new ambient track.
  * If the track is already active, just updates the volume.
  *
- * @param track       Target AmbianceTrack to switch to.
- * @param masterVol   Current master volume (0-1).
- * @param musicVol    Current music sub-volume (0-1).
+ * @param {AmbianceTrack} track - Target AmbianceTrack to switch to
+ * @param {number} masterVol - Current master volume (0-1)
+ * @param {number} musicVol - Current music sub-volume (0-1)
  */
 export function switchAmbianceTrack(
   track: AmbianceTrack,
@@ -120,8 +160,8 @@ export function switchAmbianceTrack(
  * Update the volume of the currently playing track without crossfading.
  * Call this when the user moves a volume slider or when master/music volume changes.
  *
- * @param masterVol   Current master volume (0-1).
- * @param musicVol    Current music sub-volume (0-1).
+ * @param {number} masterVol - Current master volume (0-1)
+ * @param {number} musicVol - Current music sub-volume (0-1)
  */
 export function setAmbianceVolume(masterVol: number, musicVol: number): void {
   if (!isBrowser()) return;
@@ -134,7 +174,7 @@ export function setAmbianceVolume(masterVol: number, musicVol: number): void {
 /**
  * Mute or unmute the active ambient track without stopping it.
  *
- * @param muted   True to mute, false to unmute.
+ * @param {boolean} muted - True to mute, false to unmute
  */
 export function muteAmbiance(muted: boolean): void {
   if (!isBrowser()) return;
