@@ -12,11 +12,11 @@ smallest next one**, implements it in one small diff with passing tests, and rec
 
 ## Phase 1 — Wire up dormant Game-Logic mechanics (high test coverage, low risk)
 
-- [ ] **Companion skill bonuses wired into mechanics.** Coe's navigation skill reduces getting-lost
+- [x] **Companion skill bonuses wired into mechanics.** Coe's navigation skill reduces getting-lost
   chance; Vega's medicine skill improves condition-recovery; Blanchard's hunting skill raises hunt yield.
   The skill values already exist but the calculators ignore them. Touch `src/systems/movement.ts`,
   `src/systems/health.ts`, `src/systems/supplies.ts`; extend `tests/systems/companions.test.ts`
-  (e.g. "Coe in party → getting-lost chance reduced").
+  (e.g. "Coe in party → getting-lost chance reduced"). _(Built on `auto/frontier-feature-companion-skills`; draft PR pending review.)_
 - [ ] **Condition escalation when untreated.** `ActiveCondition` carries `daysUntilCritical` but it never
   decrements. In `src/systems/health.ts`, decrement it each day; at 0, emit a "worsened" `HealthEvent`
   and apply a permanent debuff (e.g. broken bone → lasting movement penalty). Extend `tests/systems/health.test.ts`.

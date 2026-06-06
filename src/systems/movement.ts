@@ -48,6 +48,12 @@ export interface MovementInput {
   horseLameness: boolean;
   tackCondition: number;
   navigationSkill: number;
+  /**
+   * Aggregate navigation bonus from active companions (e.g. Coe), added to the
+   * player's own navigationSkill when computing getting-lost chance. Defaults
+   * to 0 (no companion). Source: CompanionSkillBonuses.navigationBonus.
+   */
+  companionNavigationBonus?: number;
   distanceToWaypoint: number;
   /** Remaining detour miles from Devil's Bargain. Consumed before regular progress. */
   detourMilesRemaining?: number;
@@ -109,8 +115,14 @@ export function calculateMovement(input: MovementInput): MovementResult {
 
   if (input.nightTravel) {
     const baseChance = NIGHT_TRAVEL_MODIFIERS.gettingLostChance;
-    // Navigation skill reduces getting-lost chance (100 skill = 0 chance)
-    const adjustedChance = baseChance * (1.0 - input.navigationSkill / 100);
+    // Navigation skill reduces getting-lost chance (100 effective skill = 0
+    // chance). A companion navigator (Coe) adds their bonus on top of the
+    // player's own skill, capped at 100.
+    const effectiveNavigation = Math.min(
+      100,
+      input.navigationSkill + (input.companionNavigationBonus ?? 0),
+    );
+    const adjustedChance = baseChance * (1.0 - effectiveNavigation / 100);
     if (rng() < adjustedChance) {
       gotLost = true;
       // Lose 20-50% of distance when lost

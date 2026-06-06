@@ -29,6 +29,12 @@ export interface SupplyInput {
   companionCount: number;
   /** Survival skill 0-100, affects hunt success */
   survivalSkill: number;
+  /**
+   * Aggregate hunting bonus from active companions (e.g. Blanchard). Raises the
+   * food yield of a successful hunt. Defaults to 0 (no companion hunter).
+   * Source: CompanionSkillBonuses.huntingBonus.
+   */
+  huntingBonus?: number;
   /** Max water capacity from transport mode. Undefined = no cap. */
   waterCapacity?: number;
   /** Max food capacity from transport mode. Undefined = no cap. */
@@ -58,6 +64,8 @@ const FOOD_PER_COMPANION = -1;
 
 const HUNT_FOOD_YIELD = 4;
 const HUNT_AMMO_COST = -1;
+/** Extra food per point of companion hunting bonus on a successful hunt (e.g., at bonus 15: +2). */
+const HUNT_YIELD_PER_BONUS = 0.1;
 const FORAGE_WATER_BASE = 1;
 const FORAGE_FOOD_BASE = 1;
 const FORAGE_SKILL_SCALING = 0.03;
@@ -105,7 +113,10 @@ export function calculateSupplyConsumption(input: SupplyInput): SupplyResult {
       // Hunt success: base 50% + survival skill bonus
       const huntChance = 0.5 + (input.survivalSkill / 200);
       if (rng() < huntChance) {
-        deltas.food = (deltas.food ?? 0) + HUNT_FOOD_YIELD;
+        // A companion hunter (Blanchard) raises the yield of a successful hunt.
+        const huntYield =
+          HUNT_FOOD_YIELD + Math.round((input.huntingBonus ?? 0) * HUNT_YIELD_PER_BONUS);
+        deltas.food = (deltas.food ?? 0) + huntYield;
       }
       deltas.ammo = HUNT_AMMO_COST;
     }
