@@ -1,18 +1,34 @@
 /**
- * Frontier — Ambient Music System
+ * @file Frontier — Ambient Music System
+ * @module audio/ambiance
+ * @description
+ * Howler.js-backed ambient track manager with crossfading support.
  *
- * Howler.js-backed ambient track manager with crossfading.
+ * This module handles the loading, playback, and crossfading of ambient music tracks
+ * based on game state (e.g., biome, weather). Tracks are loaded lazily on first access
+ * to minimize initial load time.
  *
- * Audio files should be placed at:
- *   public/audio/ambient/<trackName>.mp3   (or .ogg for Firefox)
+ * Audio files should be placed in:
+ *   public/audio/ambient/<trackName>.mp3 (or .ogg for Firefox compatibility)
  *
- * When a file is missing, Howler fires onloaderror which is logged
- * in dev mode but otherwise swallowed silently — the track simply
- * never plays. Drop the .mp3 files in and they start working with
- * no code changes.
+ * Missing audio files are logged in development mode but otherwise fail silently.
+ * The module is a no-op in Node.js/Vitest environments where browser audio context
+ * is unavailable.
  *
- * This module is a no-op in Node.js / Vitest environments because
- * Howler requires a browser audio context.
+ * @example
+ * // Switch to a new ambient track
+ * switchAmbianceTrack('prairie_day', 0.8, 0.7);
+ *
+ * // Update volume without changing track
+ * setAmbianceVolume(0.5, 0.9);
+ *
+ * // Mute/unmute current track
+ * muteAmbiance(true);
+ *
+ * // Stop all ambient music
+ * stopAmbiance();
+ *
+ * @asOf 2026-06-07
  */
 
 import { Howl } from 'howler';

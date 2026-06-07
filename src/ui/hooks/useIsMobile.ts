@@ -1,22 +1,51 @@
+/**
+ * @file Custom React hook for detecting mobile devices
+ * @module ui/hooks/useIsMobile
+ * @description
+ * Provides responsive layout detection by monitoring viewport width.
+ * Automatically updates when the window is resized.
+ *
+ * @example
+ * const isMobile = useIsMobile();
+ * // Returns true when viewport width <= 768px
+ *
+ * @asOf 2026-06-07
+ */
+
 import { useState, useEffect } from 'react';
 
-const MOBILE_QUERY = '(max-width: 767px)';
-
 /**
- * Returns true when the viewport is narrower than 768px.
- * Uses matchMedia for efficient change detection (no resize polling).
+ * Custom hook to detect mobile viewport size.
+ *
+ * @param {number} [breakpoint=768] - Viewport width breakpoint in pixels
+ * @param {number} [debounceDelay=200] - Debounce delay in milliseconds
+ * @returns {boolean} True if viewport width is <= breakpoint (mobile), false otherwise
  */
-export function useIsMobile(): boolean {
-  const [isMobile, setIsMobile] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia(MOBILE_QUERY).matches,
-  );
+export function useIsMobile(breakpoint = 768, debounceDelay = 200): boolean {
+  const [isMobile, setIsMobile] = useState<boolean>(false);
 
   useEffect(() => {
-    const mq = window.matchMedia(MOBILE_QUERY);
-    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
-  }, []);
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= breakpoint);
+    };
+
+    // Initial check
+    checkMobile();
+
+    // Debounced resize handler
+    let timeoutId: ReturnType<typeof setTimeout>;
+    const handleResize = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(checkMobile, debounceDelay);
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearTimeout(timeoutId);
+    };
+  }, [breakpoint, debounceDelay]);
 
   return isMobile;
 }
