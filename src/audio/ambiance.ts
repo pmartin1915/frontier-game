@@ -1,18 +1,24 @@
 /**
- * Frontier — Ambient Music System
+ * @file Frontier — Ambient Music System
+ * @module audio/ambiance
+ * @description
+ * Howler.js-backed ambient track manager with crossfading for dynamic biome and weather transitions.
  *
- * Howler.js-backed ambient track manager with crossfading.
+ * Tracks are loaded lazily on first access to minimize initial load time. Missing audio files
+ * are logged in development but otherwise fail silently (the track simply won't play).
  *
- * Audio files should be placed at:
- *   public/audio/ambient/<trackName>.mp3   (or .ogg for Firefox)
+ * @requires howler
+ * @requires @/types/audio
  *
- * When a file is missing, Howler fires onloaderror which is logged
- * in dev mode but otherwise swallowed silently — the track simply
- * never plays. Drop the .mp3 files in and they start working with
- * no code changes.
+ * @example
+ * // Switch to a new biome track
+ * switchAmbianceTrack(AmbianceTrack.Forest, 1.0, 0.8);
  *
- * This module is a no-op in Node.js / Vitest environments because
- * Howler requires a browser audio context.
+ * @example
+ * // Update volume after user adjustment
+ * setAmbianceVolume(1.0, 0.6);
+ *
+ * @asOf 2026-06-10
  */
 
 import { Howl } from 'howler';
@@ -20,20 +26,43 @@ import { AmbianceTrack } from '@/types/audio';
 
 const CROSSFADE_MS = 2500;
 
-// Lazy track instances — created on first access to avoid loading everything upfront.
+/**
+ * Lazy-loaded Howl instances for each ambient track.
+ * @type {Map<AmbianceTrack, Howl>}
+ */
 const _tracks = new Map<AmbianceTrack, Howl>();
 
+/**
+ * Currently active track, or null if none is playing.
+ * @type {AmbianceTrack|null}
+ */
 let _activeTrack: AmbianceTrack | null = null;
+
+/**
+ * Target volume (0-1) after applying master and music volume multipliers.
+ * @type {number}
+ */
 let _targetVolume = 0;
 
-// Tracks a Howl that is currently fading out so we can cancel and stop it
-// immediately if a new switch arrives before the fade completes.
+/**
+ * Reference to a track currently fading out, allowing cancellation if a new switch occurs.
+ * @type {{ howl: Howl; timer: ReturnType<typeof setTimeout> }|null}
+ */
 let _fadingOutTrack: { howl: Howl; timer: ReturnType<typeof setTimeout> } | null = null;
 
+/**
+ * Determines if the environment supports audio playback (browser with AudioContext).
+ * @returns {boolean} True if running in a browser environment with audio support.
+ */
 function isBrowser(): boolean {
   return typeof window !== 'undefined' && typeof window.AudioContext !== 'undefined';
 }
 
+/**
+ * Creates a Howl instance for the specified track.
+ * @param {AmbianceTrack} track - The track to load.
+ * @returns {Howl} Configured Howl instance for the track.
+ */
 function makeHowl(track: AmbianceTrack): Howl {
   return new Howl({
     src: [
@@ -51,6 +80,11 @@ function makeHowl(track: AmbianceTrack): Howl {
   });
 }
 
+/**
+ * Retrieves or creates a Howl instance for the specified track.
+ * @param {AmbianceTrack} track - The track to retrieve.
+ * @returns {Howl} Howl instance for the track.
+ */
 function getHowl(track: AmbianceTrack): Howl {
   if (!_tracks.has(track)) {
     _tracks.set(track, makeHowl(track));
@@ -59,12 +93,14 @@ function getHowl(track: AmbianceTrack): Howl {
 }
 
 /**
- * Crossfade to a new ambient track.
- * If the track is already active, just updates the volume.
+ * Crossfades to a new ambient track with volume adjustment.
  *
- * @param track       Target AmbianceTrack to switch to.
- * @param masterVol   Current master volume (0-1).
- * @param musicVol    Current music sub-volume (0-1).
+ * If the specified track is already active, only the volume is updated.
+ * Any currently fading-out track is stopped immediately to prevent audio leaks.
+ *
+ * @param {AmbianceTrack} track - The target track to switch to.
+ * @param {number} masterVol - Master volume level (0-1).
+ * @param {number} musicVol - Music sub-volume level (0-1).
  */
 export function switchAmbianceTrack(
   track: AmbianceTrack,
@@ -81,9 +117,7 @@ export function switchAmbianceTrack(
     return;
   }
 
-  // If there is already a track fading out, stop it immediately.
-  // This prevents silent, leaked Howl instances when the user switches
-  // tracks rapidly (e.g. biome + storm trigger in the same update).
+  // Cancel any pending fade-out to prevent silent Howl instances.
   if (_fadingOutTrack !== null) {
     clearTimeout(_fadingOutTrack.timer);
     _fadingOutTrack.howl.stop();
@@ -117,11 +151,11 @@ export function switchAmbianceTrack(
 }
 
 /**
- * Update the volume of the currently playing track without crossfading.
- * Call this when the user moves a volume slider or when master/music volume changes.
+ * Updates the volume of the currently playing track without crossfading.
+ * Call this when master or music volume sliders change.
  *
- * @param masterVol   Current master volume (0-1).
- * @param musicVol    Current music sub-volume (0-1).
+ * @param {number} masterVol - Master volume level (0-1).
+ * @param {number} musicVol - Music sub-volume level (0-1).
  */
 export function setAmbianceVolume(masterVol: number, musicVol: number): void {
   if (!isBrowser()) return;
@@ -132,9 +166,9 @@ export function setAmbianceVolume(masterVol: number, musicVol: number): void {
 }
 
 /**
- * Mute or unmute the active ambient track without stopping it.
+ * Mutes or unmutes the active ambient track.
  *
- * @param muted   True to mute, false to unmute.
+ * @param {boolean} muted - True to mute, false to unmute.
  */
 export function muteAmbiance(muted: boolean): void {
   if (!isBrowser()) return;
@@ -144,8 +178,8 @@ export function muteAmbiance(muted: boolean): void {
 }
 
 /**
- * Fade out and stop the active ambient track.
- * Used on game over / victory or when ambient music should cease.
+ * Fades out and stops the active ambient track.
+ * Used during game over, victory, or when ambient music should cease.
  */
 export function stopAmbiance(): void {
   if (!isBrowser() || _activeTrack === null) return;
@@ -154,7 +188,7 @@ export function stopAmbiance(): void {
     h.fade(h.volume() as number, 0, 800);
     setTimeout(() => h.stop(), 900);
   }
-  // Also stop any track mid-fade.
+  // Stop any track mid-fade.
   if (_fadingOutTrack !== null) {
     clearTimeout(_fadingOutTrack.timer);
     _fadingOutTrack.howl.stop();
