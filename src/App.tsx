@@ -99,6 +99,7 @@ if (import.meta.env.DEV) {
  * In development mode, it also includes an agent bridge for external tools
  * to observe and control game state.
  *
+ * @component
  * @returns {JSX.Element} The root React element of the application.
  */
 export default function App() {

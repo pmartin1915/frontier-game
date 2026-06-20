@@ -1,6 +1,7 @@
+```
 # Frontier
 
-**Date:** 2026-06-07
+**Date:** 2026-06-20
 
 Frontier is a narrative-driven survival game where players guide a pioneer across a perilous journey. This repository contains the core game engine, UI components, and state management.
 
@@ -43,32 +44,32 @@ The game operates on a daily cycle with distinct phases:
 
 ### Auto-Player
 
-The `initAutoPlayer()` system in `src/engine/auto-player.ts` provides automated gameplay for testing and demonstration purposes.
+The `initAutoPlayer()` system in `src/engine/auto-player.ts` provides automated gameplay for testing and demonstration purposes. It makes decisions based on current game state and predefined strategies.
 
 ## UI Components
 
 ### Layouts
 
-- `DesktopLayout` - Primary layout for desktop browsers
-- `MobileLayout` - Responsive layout for mobile devices
-- `useIsMobile` hook - Detects mobile viewport size
+- `DesktopLayout` - Primary layout for desktop browsers with sidebar and main content area
+- `MobileLayout` - Responsive layout for mobile devices with bottom navigation
+- `useIsMobile` hook - Detects mobile viewport size (threshold: 768px)
 
 ### Overlays
 
 Primary game screens are implemented as overlays:
-- `MorningBriefing` - Daily status report
-- `DecisionOverlay` - Daily decision making
-- `BargainOverlay` - Trade and negotiation encounters
-- `CampOverlay` - Camp management
-- `SaveLoadModal` - Save/load game interface
-- `GameEndScreen` - Victory/defeat screen
-- `NewGameScreen` - Character creation
-- `ErrorToast` - Error display component
+- `MorningBriefing` - Daily status report with weather, supplies, and journey progress
+- `DecisionOverlay` - Daily decision making (pace, actions, night travel)
+- `BargainOverlay` - Trade and negotiation encounters with NPCs
+- `CampOverlay` - Camp management (rest, hunt, repair gear)
+- `SaveLoadModal` - Save/load game interface with localStorage persistence
+- `GameEndScreen` - Victory/defeat screen with journey summary
+- `NewGameScreen` - Character creation with name input and difficulty selection
+- `ErrorToast` - Error display component with auto-dismiss
 
 ### Error Handling
 
-- `ErrorBoundary` - React error boundary component
-- Global error display via `ErrorToast`
+- `ErrorBoundary` - React error boundary component that catches and displays errors
+- Global error display via `ErrorToast` with stack traces in development mode
 
 ## Development Features
 
@@ -79,22 +80,22 @@ In development mode (`import.meta.env.DEV`), the game exposes an agent bridge th
 2. **Command Execution**: Polls `/api/agent/command` every 1500ms for external commands
 
 Supported commands:
-- `setAutoPlay` - Toggle auto-player
+- `setAutoPlay` - Toggle auto-player (value: boolean)
 - `dismissOverlay` - Close current overlay
 - `startDailyCycle` - Advance to next phase
-- `setDailyDecisions` - Set pace and actions
-- `resolveEncounterChoice` - Choose encounter option
-- `resolveBargainChoice` - Accept/reject bargain
-- `initializeGame` - Start new game
+- `setDailyDecisions` - Set pace and actions (parameters: pace, discretionaryAction, nightTravel)
+- `resolveEncounterChoice` - Choose encounter option (parameter: choiceId)
+- `resolveBargainChoice` - Accept/reject bargain (parameter: accepted)
+- `initializeGame` - Start new game (parameters: playerName, horseName)
 
 ### Audio System
 
 The audio system uses Howler.js for:
-- Ambient music (biome/weather-specific)
-- Sound effects
-- Voiceovers
+- Ambient music (biome/weather-specific with crossfading)
+- Sound effects (UI interactions, environmental sounds)
+- Voiceovers (narrative events)
 
-See [audio/README.md](audio/README.md) for details.
+See [audio/README.md](audio/README.md) for implementation details.
 
 ## Getting Started
 
@@ -115,8 +116,30 @@ npm run build
 
 ## TypeScript
 
-The project uses TypeScript with strict type checking. Core types are defined in `src/types/`.
+The project uses TypeScript with strict type checking. Core types are defined in `src/types/`:
+- `game-state.ts` - Main game state types and enums
+- `encounters.ts` - Encounter definitions and types
+- `audio.ts` - Audio system types
+- `ui.ts` - UI component props and types
 
 ## Testing
 
-*(Testing documentation to be added as test suite develops)*
+The project includes:
+- Unit tests for game engine logic (Jest)
+- Integration tests for state transitions
+- E2E tests for critical user flows (Playwright)
+
+Run tests with:
+```bash
+npm test
+npm run test:e2e
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/your-feature`)
+3. Commit changes (`git commit -am 'Add some feature'`)
+4. Push to branch (`git push origin feature/your-feature`)
+5. Open a Pull Request
+```
