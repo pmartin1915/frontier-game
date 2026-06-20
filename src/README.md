@@ -1,6 +1,6 @@
 # Frontier
 
-**Date:** 2026-06-19
+**Date:** 2026-06-20
 
 Frontier is a narrative-driven survival game where players guide a pioneer across a perilous journey. This repository contains the core game engine, UI components, and state management.
 
@@ -158,3 +158,7 @@ The game supports localization through:
 - i18n string extraction
 - Translation files in `public/locales/`
 - Dynamic language switching
+
+## API Directory
+
+The `src/api/` directory is reserved for future API integrations and agent bridge implementations. Currently contains placeholder files.
