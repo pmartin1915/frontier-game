@@ -1,6 +1,7 @@
+```
 # Frontier
 
-**Date:** 2026-06-07
+**Date:** 2026-06-20
 
 Frontier is a narrative-driven survival game where players guide a pioneer across a perilous journey. This repository contains the core game engine, UI components, and state management.
 
@@ -43,58 +44,59 @@ The game operates on a daily cycle with distinct phases:
 
 ### Auto-Player
 
-The `initAutoPlayer()` system in `src/engine/auto-player.ts` provides automated gameplay for testing and demonstration purposes.
+The `initAutoPlayer()` system in `src/engine/auto-player.ts` provides automated gameplay for testing and demonstration purposes. It makes decisions based on current game state and predefined strategies.
 
 ## UI Components
 
 ### Layouts
 
-- `DesktopLayout` - Primary layout for desktop browsers
-- `MobileLayout` - Responsive layout for mobile devices
-- `useIsMobile` hook - Detects mobile viewport size
+- `DesktopLayout` - Primary layout for desktop browsers with sidebar and main content area
+- `MobileLayout` - Responsive layout for mobile devices with bottom navigation
+- `useIsMobile` hook - Detects mobile viewport size (threshold: 768px)
 
 ### Overlays
 
 Primary game screens are implemented as overlays:
-- `MorningBriefing` - Daily status report
-- `DecisionOverlay` - Daily decision making
-- `BargainOverlay` - Trade and negotiation encounters
-- `CampOverlay` - Camp management
-- `SaveLoadModal` - Save/load game interface
-- `GameEndScreen` - Victory/defeat screen
-- `NewGameScreen` - Character creation
-- `ErrorToast` - Error display component
+- `MorningBriefing` - Daily status report with weather, supplies, and journey progress
+- `DecisionOverlay` - Daily decision making (pace, actions, night travel)
+- `BargainOverlay` - Trade and negotiation encounters with NPCs
+- `CampOverlay` - Camp management (rest, hunt, repair gear)
+- `SaveLoadModal` - Save/load game interface with localStorage persistence
+- `GameEndScreen` - Victory/defeat screen with journey summary
+- `NewGameScreen` - Character creation with name input and difficulty selection
+- `ErrorToast` - Global error display component with auto-dismiss
 
 ### Error Handling
 
-- `ErrorBoundary` - React error boundary component
-- Global error display via `ErrorToast`
+- `ErrorBoundary` - React error boundary component that catches and displays errors
+- Global error display via `ErrorToast` with stack traces in development mode
 
 ## Development Features
 
 ### Agent Bridge (Dev Mode Only)
 
-In development mode (`import.meta.env.DEV`), the game exposes an agent bridge that:
+In development mode (`import.meta.env.DEV`), the game exposes an agent bridge that enables external tools to observe and control the game:
+
 1. **State Observation**: Pushes game state snapshots to `/api/agent/state` on every phase change
 2. **Command Execution**: Polls `/api/agent/command` every 1500ms for external commands
 
 Supported commands:
-- `setAutoPlay` - Toggle auto-player
+- `setAutoPlay` - Toggle auto-player (value: boolean)
 - `dismissOverlay` - Close current overlay
 - `startDailyCycle` - Advance to next phase
-- `setDailyDecisions` - Set pace and actions
-- `resolveEncounterChoice` - Choose encounter option
-- `resolveBargainChoice` - Accept/reject bargain
-- `initializeGame` - Start new game
+- `setDailyDecisions` - Set pace and actions (params: pace, discretionaryAction, nightTravel)
+- `resolveEncounterChoice` - Choose encounter option (param: choiceId)
+- `resolveBargainChoice` - Accept/reject bargain (param: accepted)
+- `initializeGame` - Start new game (params: playerName, horseName)
 
 ### Audio System
 
 The audio system uses Howler.js for:
-- Ambient music (biome/weather-specific)
-- Sound effects
-- Voiceovers
+- Ambient music (biome/weather-specific with crossfading)
+- Sound effects (UI interactions, environmental sounds)
+- Voiceovers (narrative elements)
 
-See [audio/README.md](audio/README.md) for details.
+See [audio/README.md](audio/README.md) for implementation details.
 
 ## Getting Started
 
@@ -115,8 +117,32 @@ npm run build
 
 ## TypeScript
 
-The project uses TypeScript with strict type checking. Core types are defined in `src/types/`.
+The project uses TypeScript with strict type checking. Core types are defined in `src/types/` and include:
+- `GameState` - Complete game state type
+- `DailyCyclePhase` - Phases of the daily cycle
+- `Pace` - Travel pace options
+- `DiscretionaryAction` - Available daily actions
+- `Encounter` - Random event definitions
+- `AudioTrack` - Audio system types
 
 ## Testing
 
-*(Testing documentation to be added as test suite develops)*
+The project includes:
+- Unit tests for game logic in `src/engine/__tests__/`
+- Component tests in `src/ui/__tests__/`
+- Integration tests for state management
+
+Run tests with:
+```bash
+npm test
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Open a pull request
+
+Please follow the existing code style and include tests for new functionality.
+```
