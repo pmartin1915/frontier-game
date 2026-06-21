@@ -10,6 +10,15 @@ smallest next one**, implements it in one small diff with passing tests, and rec
 - Narrator (Layer 3) returns prose only and **never writes game state**.
 - One feature per dispatch. All tests (`npm run test:run`) must pass. Add/extend tests for the change.
 
+**Authoring rule — write every item single-file and decoupled (modular-monolith).**
+Each unchecked item should touch **one source file + its test**. If a feature needs a new
+type/data shape AND logic that consumes it, split it into ordered steps — first add the type/data
+(with a safe default), then the consumer (with a `dep:` note) — so each dispatch is an atomic,
+independently-testable diff. Cross-file, shared-mutable-state changes are exactly where autonomous
+builds fail (the within-model atomic→coupled success cliff is larger than the gap between model
+tiers); decomposing them is what lets free models compound this repo. Rationale + evidence:
+`claude-budget-dispatcher/docs/research/RESEARCH-LEDGER-autonomous-coding-2026-06-21.md` (Insights 1 & 7).
+
 ## Phase 1 — Wire up dormant Game-Logic mechanics (high test coverage, low risk)
 
 - [x] **Companion skill bonuses wired into mechanics.** Coe's navigation skill reduces getting-lost
@@ -28,17 +37,34 @@ smallest next one**, implements it in one small diff with passing tests, and rec
 
 ## Phase 2 — Encounter depth (Layer 1 + data)
 
-- [ ] **River-crossing terrain lock.** A river-crossing encounter should block forward movement until the
-  player resolves it. Add `riverCrossingInProgress` to `JourneyState` (`src/types/game-state.ts`); in
-  `src/systems/movement.ts` return 0 distance while set; clear it on the encounter choice. Test in
-  `tests/systems/encounters.test.ts`.
+<!-- River-crossing terrain lock — atomized into 3 single-file steps (was a 3-file coupled item). -->
+- [ ] **River-crossing: add the lock flag.** Add an optional `riverCrossingInProgress?: boolean` field
+  to `JourneyState` in `src/types/game-state.ts` (default-absent = not crossing). If the journey-state
+  factory lives in this same module, initialize it to `false`. Extend the game-state type test to assert
+  the field's default. No behavior change yet — this just introduces the flag.
+- [ ] **River-crossing: block movement while locked.** In `src/systems/movement.ts`, return 0 distance
+  when `state.riverCrossingInProgress === true`. Extend `tests/systems/movement.test.ts` ("no forward
+  distance while a river crossing is in progress"). _(dep: "add the lock flag" above.)_
+- [ ] **River-crossing: clear the lock on resolve.** In the river-crossing encounter resolver
+  (`src/systems/encounters.ts`), set `riverCrossingInProgress` true when the encounter starts and clear
+  it to false on the player's resolving choice. Extend `tests/systems/encounters.test.ts`. _(dep: the two
+  steps above.)_
 - [ ] **Encounter outcome randomization within bounds.** Numeric outcome deltas should vary ±10% and the
   actual value should be logged in the `EventRecord`. `src/systems/encounters.ts`; extend its test.
-- [ ] **Companion-specific encounter choices.** Add a `companion: CompanionId` requirement type so some
-  choices are only available when that companion is present. `src/types/encounters.ts`,
-  `src/systems/encounters.ts`; test "choice requiring Coe is unavailable if Coe deserted".
-- [ ] **Settlement barter.** Add a "negotiate" choice to settlement resupply that uses a barter roll to
-  adjust the water/food gained. `src/systems/encounters.ts`, `src/data/encounter-templates.ts`; test it.
+<!-- Companion-specific encounter choices — atomized into 2 single-file steps (was a 2-file coupled item). -->
+- [ ] **Companion choice gating: add the requirement type.** Add a `companion: CompanionId` requirement
+  variant to the choice-requirement type in `src/types/encounters.ts`. Extend the encounters type test.
+  No enforcement yet — just the shape. _(Layer-1 type only.)_
+- [ ] **Companion choice gating: enforce presence.** In `src/systems/encounters.ts`, hide/disable any
+  choice carrying a `companion` requirement when that companion is absent. Test "choice requiring Coe is
+  unavailable if Coe deserted". _(dep: "add the requirement type" above.)_
+<!-- Settlement barter — atomized into 2 single-file steps (was a 2-file coupled item). -->
+- [ ] **Settlement barter: add the barter data.** Add barter parameters (e.g. a roll range / yield
+  multipliers) to the settlement resupply template in `src/data/encounter-templates.ts`. Extend the
+  encounter-templates test for the new data shape. No logic yet — data only. _(data-table step.)_
+- [ ] **Settlement barter: add the negotiate choice.** Add a "negotiate" choice to settlement resupply in
+  `src/systems/encounters.ts` that consumes the barter data via a barter roll to adjust water/food gained.
+  Extend `tests/systems/encounters.test.ts`. _(dep: "add the barter data" above.)_
 
 ## Phase 3 — Director compounding (the narrative ledger; all deterministic, no AI)
 
@@ -58,8 +84,12 @@ smallest next one**, implements it in one small diff with passing tests, and rec
   form ("+3 food", "−1 rifle durability", "Coe loyalty −10"). `src/ui/overlays/DecisionOverlay.tsx`.
 - [ ] **Companion status on the map.** Render small health/morale bars per active companion in
   `src/ui/panels/MapPanel.tsx`.
-- [ ] **Waypoint lore tooltip.** Clicking a waypoint shows historical context (from `LORE.md`). Add
-  `src/data/waypoint-lore.ts` + wire into `src/ui/panels/MapPanel.tsx`.
+<!-- Waypoint lore tooltip — atomized into 2 single-file steps (was a data-file + wiring coupled item). -->
+- [ ] **Waypoint lore: add the lore table.** Add `src/data/waypoint-lore.ts` mapping waypoints to
+  historical context (from `LORE.md`). Add a unit test asserting a couple of known entries resolve.
+  Data only — no UI wiring yet. _(data-table step.)_
+- [ ] **Waypoint lore: wire the tooltip.** Clicking a waypoint shows its lore from `waypoint-lore.ts` in
+  `src/ui/panels/MapPanel.tsx`. _(dep: "add the lore table" above.)_
 
 ## Done
 _(Move completed items here with the PR number once merged.)_
